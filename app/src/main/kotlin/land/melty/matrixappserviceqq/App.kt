@@ -3,6 +3,14 @@
  */
 package land.melty.matrixappserviceqq
 
+import kotlinx.coroutines.runBlocking
+import net.mamoe.mirai.BotFactory
+import net.mamoe.mirai.alsoLogin
+import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.message.data.MessageSource.Key.quote
+import net.mamoe.mirai.message.data.content
+import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
+
 class App {
     val greeting: String
         get() {
@@ -10,6 +18,13 @@ class App {
         }
 }
 
-fun main() {
-    println(App().greeting)
+fun main(args: Array<String>): Unit = runBlocking {
+    val qqid: Long = args[0].toLong()
+    val bot = BotFactory.newBot(qqid, args[1]) {
+        fileBasedDeviceInfo()
+        protocol = ANDROID_PAD
+    }.alsoLogin()
+    bot.eventChannel.subscribeAlways<GroupMessageEvent> {
+        println(message.content)
+    }
 }

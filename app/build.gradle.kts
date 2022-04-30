@@ -20,6 +20,12 @@ repositories {
 }
 
 dependencies {
+    api(platform("net.mamoe:mirai-bom:2.10.1"))
+    api("net.mamoe:mirai-core-api")
+    runtimeOnly("net.mamoe:mirai-core")
+
+    // implementation("net.folivo:trixnity-applicationservice:2.0.0-RC5")
+
     // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
 
