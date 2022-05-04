@@ -14,6 +14,12 @@ plugins {
     application
 }
 
+tasks {
+    compileKotlin {
+       kotlinOptions { jvmTarget = JavaVersion.VERSION_11.toString() }
+    }
+}
+
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
@@ -24,7 +30,9 @@ dependencies {
     api("net.mamoe:mirai-core-api")
     runtimeOnly("net.mamoe:mirai-core")
 
-    api("net.folivo:trixnity-applicationservice:2.0.0-RC5")
+    implementation("net.folivo:trixnity-appservice:1.1.9")
+    implementation("net.folivo:trixnity-client-api:1.1.9")
+    implementation("io.ktor:ktor-server-netty:1.6.7")
 
     // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
@@ -40,25 +48,6 @@ dependencies {
 
     // Use the Kotlin JUnit integration.
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
-}
-
-configurations.all {
-    resolutionStrategy {
-        // resolutionStrategy.failOnVersionConflict()
-        force("io.ktor:ktor-client-okhttp:1.6.5")
-        force("io.ktor:ktor-client-core:1.6.5")
-        force("io.ktor:ktor-client-core-jvm:1.6.5")
-        force("io.ktor:ktor-http:1.6.5")
-        force("io.ktor:ktor-http-jvm:1.6.5")
-        force("io.ktor:ktor-utils:1.6.5")
-        force("io.ktor:ktor-utils-jvm:1.6.5")
-        force("io.ktor:ktor-io:1.6.5")
-        force("io.ktor:ktor-io-jvm:1.6.5")
-        force("io.ktor:ktor-http-cio:1.6.5")
-        force("io.ktor:ktor-http-cio-jvm:1.6.5")
-        force("io.ktor:ktor-network:1.6.5")
-        force("io.ktor:ktor-network-jvm:1.6.5")
-    }
 }
 
 application {

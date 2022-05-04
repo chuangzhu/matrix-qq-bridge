@@ -3,28 +3,95 @@
  */
 package land.melty.matrixappserviceqq
 
-import kotlinx.coroutines.runBlocking
+import io.ktor.http.Url
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import net.folivo.trixnity.appservice.rest.DefaultAppserviceService
+import net.folivo.trixnity.appservice.rest.MatrixAppserviceProperties
+import net.folivo.trixnity.appservice.rest.event.AppserviceEventTnxService
+import net.folivo.trixnity.appservice.rest.matrixAppserviceModule
+import net.folivo.trixnity.appservice.rest.room.AppserviceRoomService
+import net.folivo.trixnity.appservice.rest.room.CreateRoomParameter
+import net.folivo.trixnity.appservice.rest.user.AppserviceUserService
+import net.folivo.trixnity.appservice.rest.user.RegisterUserParameter
+import net.folivo.trixnity.client.api.MatrixApiClient
+import net.folivo.trixnity.core.model.RoomAliasId
+import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.m.room.MemberEventContent
+import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
+import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
-import net.mamoe.mirai.alsoLogin
 import net.mamoe.mirai.event.events.GroupMessageEvent
-import net.mamoe.mirai.message.data.MessageSource.Key.quote
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
 
-class App {
-    val greeting: String
-        get() {
-            return "Hello World!"
-        }
+class Puppet(val qqid: Long, val password: String) {
+    val bot: Bot
+    init {
+        bot =
+                BotFactory.newBot(qqid, password) {
+                    fileBasedDeviceInfo()
+                    protocol = ANDROID_PAD
+                }
+    }
+    suspend fun connect() {
+        bot.login()
+        bot.eventChannel.subscribeAlways<GroupMessageEvent> { println(message.content) }
+    }
 }
 
-fun main(args: Array<String>): Unit = runBlocking {
-    val qqid: Long = args[0].toLong()
-    val bot = BotFactory.newBot(qqid, args[1]) {
-        fileBasedDeviceInfo()
-        protocol = ANDROID_PAD
-    }.alsoLogin()
-    bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        println(message.content)
+class EventTnxService : AppserviceEventTnxService {
+    override suspend fun eventTnxProcessingState(
+            tnxId: String
+    ): AppserviceEventTnxService.EventTnxProcessingState {
+        return AppserviceEventTnxService.EventTnxProcessingState.NOT_PROCESSED
     }
+    override suspend fun onEventTnxProcessed(tnxId: String) {}
+}
+
+class UserService(matrixApiClient: MatrixApiClient) : AppserviceUserService {
+    override val matrixApiClient = matrixApiClient
+    override suspend fun userExistingState(
+            userId: UserId
+    ): AppserviceUserService.UserExistingState {
+        return AppserviceUserService.UserExistingState.CAN_BE_CREATED
+    }
+    override suspend fun getRegisterUserParameter(userId: UserId): RegisterUserParameter {
+        return RegisterUserParameter(displayName = "Alice (QQ)")
+    }
+    override suspend fun onRegisteredUser(userId: UserId) {}
+}
+
+class RoomService(matrixApiClient: MatrixApiClient) : AppserviceRoomService {
+    override val matrixApiClient = matrixApiClient
+    override suspend fun roomExistingState(
+            roomAlias: RoomAliasId
+    ): AppserviceRoomService.RoomExistingState {
+        return AppserviceRoomService.RoomExistingState.CAN_BE_CREATED
+    }
+    override suspend fun getCreateRoomParameter(roomAlias: RoomAliasId): CreateRoomParameter {
+        return CreateRoomParameter()
+    }
+    override suspend fun onCreatedRoom(roomAlias: RoomAliasId, roomId: RoomId) {}
+}
+
+fun main(args: Array<String>) {
+    val matrixApiClient =
+            MatrixApiClient(baseUrl = Url("https://matrix.melty.land")).apply {
+                accessToken.value = "hsToken"
+            }
+    val eventTnxService = EventTnxService()
+    val userService = UserService(matrixApiClient)
+    val roomService = RoomService(matrixApiClient)
+    val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
+    appserviceService.subscribe<TextMessageEventContent> { println(it.content.body) }
+    appserviceService.subscribe<MemberEventContent> {
+        println("${it.content.displayName} did ${it.content.membership}")
+    }
+    val engine =
+            embeddedServer(Netty, port = 8245) {
+                matrixAppserviceModule(MatrixAppserviceProperties("asToken"), appserviceService)
+            }
+    engine.start(wait = true)
 }
