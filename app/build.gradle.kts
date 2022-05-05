@@ -9,6 +9,7 @@
 plugins {
     // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
     id("org.jetbrains.kotlin.jvm") version "1.5.31"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.5.31"
 
     // Apply the application plugin to add support for building a CLI application in Java.
     application
@@ -33,6 +34,8 @@ dependencies {
     implementation("net.folivo:trixnity-appservice:1.1.9")
     implementation("net.folivo:trixnity-client-api:1.1.9")
     implementation("io.ktor:ktor-server-netty:1.6.7")
+    implementation("com.charleskorn.kaml:kaml:0.43.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
 
     // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
