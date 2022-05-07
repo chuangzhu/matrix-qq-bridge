@@ -6,4 +6,6 @@ build
 
 cache
 device.json
-*.yaml
+config.yaml
+qq-registration.yaml
+dendrite

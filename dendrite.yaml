@@ -1,0 +1,39 @@
+version: 2
+global:
+  private_key: dendrite/matrix_key.pem
+  server_name: localhost
+  disable_federation: true
+app_service_api:
+  config_files:
+  - ./qq-registration.yaml
+  database:
+    connection_string: file:dendrite/appserviceapi.db
+federation_api:
+  database:
+    connection_string: file:dendrite/federationapi.db
+  send_max_retries: 16
+key_server:
+  database:
+    connection_string: file:dendrite/keyserver.db
+media_api:
+  base_path: dendrite/media_store
+  database:
+    connection_string: file:dendrite/mediaapi.db
+  max_file_size_bytes: 10485760
+mscs:
+  database:
+    connection_string: file:dendrite/mscs.db
+room_server:
+  database:
+    connection_string: file:dendrite/roomserver.db
+sync_api:
+  database:
+    connection_string: file:dendrite/syncapi.db
+user_api:
+  account_database:
+    connection_string: file:dendrite/userapi_accounts.db
+  device_database:
+    connection_string: file:dendrite/userapi_devices.db
+logging:
+- level: warn
+  type: std
