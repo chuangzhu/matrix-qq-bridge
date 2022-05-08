@@ -8,6 +8,7 @@ import java.io.File
 import java.util.UUID
 import kotlin.system.exitProcess
 import kotlin.text.removePrefix
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.serializer
 import land.melty.matrixappserviceqq.config.Config
 import land.melty.matrixappserviceqq.config.RegistrationConfig
@@ -23,6 +24,7 @@ import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.RoomAliasId
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.Event.RoomEvent
 import net.folivo.trixnity.core.model.events.m.room.MemberEventContent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
 import net.mamoe.mirai.BotFactory
@@ -138,14 +140,37 @@ fun main(args: Array<String>) {
             MatrixApiClient(baseUrl = Url(config.homeserver.address)).apply {
                 accessToken.value = registrationConfig.as_token
             }
+    val botUserId = UserId(config.appservice.bot_username, config.homeserver.domain)
+    runBlocking {
+        matrixApiClient.authentication.register(
+                isAppservice = true,
+                username = config.appservice.bot_username
+        )
+        matrixApiClient.users.setDisplayName(
+                userId = botUserId,
+                displayName = "QQ Bridge",
+                asUserId = botUserId
+        )
+    }
     val eventTnxService = EventTnxService()
     val userService = UserService(matrixApiClient, config)
     val roomService = RoomService(matrixApiClient)
     val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
     appserviceService.subscribe<TextMessageEventContent> { println(it.content.body) }
     appserviceService.subscribe<MemberEventContent> {
-        println("${it.content.displayName} did ${it.content.membership}")
+        val roomId = (it as RoomEvent<MemberEventContent>).roomId
+        if (it.content.membership == MemberEventContent.Membership.INVITE &&
+                        it.content.isDirect == true
+        ) {
+            matrixApiClient.rooms.joinRoom(roomId = roomId, asUserId = botUserId)
+            matrixApiClient.rooms.sendMessageEvent(
+                    roomId,
+                    TextMessageEventContent("Hello, I'm a QQ bridge bot.\nUse `help` for help.")
+            )
+        }
+        println(it)
     }
+    // appserviceService.subscribeAllEvents { println((it as StateEvent).roomId) }
     val engine =
             embeddedServer(
                     Netty,
