@@ -37,6 +37,12 @@ dependencies {
     implementation("com.charleskorn.kaml:kaml:0.43.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
 
+    implementation("org.jetbrains.exposed:exposed-core:0.38.2")
+    implementation("org.jetbrains.exposed:exposed-dao:0.38.2")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.38.2")
+    implementation("org.xerial:sqlite-jdbc:3.30.1")
+    implementation("org.postgresql:postgresql:42.2.2")
+
     // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
 

@@ -1,5 +1,6 @@
 package land.melty.matrixappserviceqq
 
+// import net.mamoe.mirai.utils.LoginSolver
 import com.charleskorn.kaml.Yaml
 import io.ktor.http.Url
 import io.ktor.server.engine.embeddedServer
@@ -31,6 +32,24 @@ import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
+import org.jetbrains.exposed.sql.Column
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.transactions.transaction
+
+// class PuppetLoginSolver(matrixApiClient: MatrixApiClient) : LoginSolver() {
+//     val matrixApiClient = matrixApiClient
+//     override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String? {
+//         matrixApiClient.rooms.sendMessageEvent(
+//                 roomId,
+//                 TextMessageEventContent("Captcha required, send the code from the image:")
+//         )
+//         matrixApiClient.media.upload(data, contentLength, contentType)
+//     }
+//     override val isSliderCaptchaSupported = true
+// }
 
 class Puppet(val qqid: Long, val password: String) {
     val bot =
@@ -59,8 +78,7 @@ class UserService(matrixApiClient: MatrixApiClient, config: Config) : Appservice
     override suspend fun userExistingState(
             userId: UserId
     ): AppserviceUserService.UserExistingState {
-        val localpart = userId.localpart
-        val qqid = localpart.removePrefix(config.appservice.username_prefix)
+        val qqid = userId.localpart.removePrefix(config.appservice.username_prefix)
         println(qqid)
         return AppserviceUserService.UserExistingState.CAN_BE_CREATED
     }
@@ -117,6 +135,12 @@ fun generateRegistration(config: Config) =
                         )
         )
 
+object DirectRooms : Table() {
+    val roomId: Column<String> = varchar("room_id", 255)
+    val user: Column<String> = text("user")
+    override val primaryKey = PrimaryKey(roomId)
+}
+
 fun main(args: Array<String>) {
     if (args.size == 0) exitProcess(1)
     val config =
@@ -136,6 +160,10 @@ fun main(args: Array<String>) {
                     RegistrationConfig.serializer(),
                     File(args[1]).readText()
             )
+    val db = Database.connect("jdbc:sqlite:matrix-appservice-qq.db", "org.sqlite.JDBC")
+    transaction(db) {
+        SchemaUtils.create(DirectRooms)
+    }
     val matrixApiClient =
             MatrixApiClient(baseUrl = Url(config.homeserver.address)).apply {
                 accessToken.value = registrationConfig.as_token
@@ -156,21 +184,31 @@ fun main(args: Array<String>) {
     val userService = UserService(matrixApiClient, config)
     val roomService = RoomService(matrixApiClient)
     val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
-    appserviceService.subscribe<TextMessageEventContent> { println(it.content.body) }
-    appserviceService.subscribe<MemberEventContent> {
-        val roomId = (it as RoomEvent<MemberEventContent>).roomId
-        if (it.content.membership == MemberEventContent.Membership.INVITE &&
-                        it.content.isDirect == true
+    appserviceService.subscribe<TextMessageEventContent> {
+        it as RoomEvent<TextMessageEventContent>
+        if (it.content.body == "login") {}
+    }
+    appserviceService.subscribe<MemberEventContent> { event ->
+        event as RoomEvent<MemberEventContent>
+        if (event.content.membership == MemberEventContent.Membership.INVITE &&
+                        event.content.isDirect == true
         ) {
-            matrixApiClient.rooms.joinRoom(roomId = roomId, asUserId = botUserId)
+            runBlocking {
+                transaction(db) {
+                    DirectRooms.insert {
+                        it[roomId] = event.roomId
+                        it[user] = event.sender
+                    }
+                }
+            }
+            matrixApiClient.rooms.joinRoom(roomId = event.roomId, asUserId = botUserId)
             matrixApiClient.rooms.sendMessageEvent(
-                    roomId,
+                    event.roomId,
                     TextMessageEventContent("Hello, I'm a QQ bridge bot.\nUse `help` for help.")
             )
         }
-        println(it)
     }
-    // appserviceService.subscribeAllEvents { println((it as StateEvent).roomId) }
+    appserviceService.subscribeAllEvents { println(it) }
     val engine =
             embeddedServer(
                     Netty,
