@@ -9,3 +9,5 @@ device.json
 config.yaml
 qq-registration.yaml
 dendrite
+
+*.db

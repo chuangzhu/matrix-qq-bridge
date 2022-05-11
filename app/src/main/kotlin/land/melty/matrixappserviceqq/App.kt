@@ -6,6 +6,7 @@ import io.ktor.http.Url
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import java.io.File
+import java.sql.DriverManager
 import java.util.UUID
 import kotlin.system.exitProcess
 import kotlin.text.removePrefix
@@ -32,12 +33,6 @@ import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
-import org.jetbrains.exposed.sql.Column
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.Table
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.transactions.transaction
 
 // class PuppetLoginSolver(matrixApiClient: MatrixApiClient) : LoginSolver() {
 //     val matrixApiClient = matrixApiClient
@@ -135,12 +130,6 @@ fun generateRegistration(config: Config) =
                         )
         )
 
-object DirectRooms : Table() {
-    val roomId: Column<String> = varchar("room_id", 255)
-    val user: Column<String> = text("user")
-    override val primaryKey = PrimaryKey(roomId)
-}
-
 fun main(args: Array<String>) {
     if (args.size == 0) exitProcess(1)
     val config =
@@ -160,10 +149,12 @@ fun main(args: Array<String>) {
                     RegistrationConfig.serializer(),
                     File(args[1]).readText()
             )
-    val db = Database.connect("jdbc:sqlite:matrix-appservice-qq.db", "org.sqlite.JDBC")
-    transaction(db) {
-        SchemaUtils.create(DirectRooms)
-    }
+    val connection = DriverManager.getConnection("jdbc:sqlite:matrix-appservice-qq.db")
+    connection
+            .createStatement()
+            .executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS direct_rooms (room_id TEXT PRIMARY KEY NOT NULL, user_id TEXT)"
+            )
     val matrixApiClient =
             MatrixApiClient(baseUrl = Url(config.homeserver.address)).apply {
                 accessToken.value = registrationConfig.as_token
@@ -186,25 +177,32 @@ fun main(args: Array<String>) {
     val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
     appserviceService.subscribe<TextMessageEventContent> {
         it as RoomEvent<TextMessageEventContent>
-        if (it.content.body == "login") {}
-    }
-    appserviceService.subscribe<MemberEventContent> { event ->
-        event as RoomEvent<MemberEventContent>
-        if (event.content.membership == MemberEventContent.Membership.INVITE &&
-                        event.content.isDirect == true
-        ) {
-            runBlocking {
-                transaction(db) {
-                    DirectRooms.insert {
-                        it[roomId] = event.roomId
-                        it[user] = event.sender
-                    }
-                }
-            }
-            matrixApiClient.rooms.joinRoom(roomId = event.roomId, asUserId = botUserId)
+        val query =
+                connection.prepareStatement("SELECT user_id FROM direct_rooms WHERE room_id = ?")
+        query.setString(1, it.roomId.toString())
+        val rs = query.executeQuery()
+        val userId = UserId(rs.getString("user_id"))
+        if (it.content.body == "!login") {
             matrixApiClient.rooms.sendMessageEvent(
-                    event.roomId,
-                    TextMessageEventContent("Hello, I'm a QQ bridge bot.\nUse `help` for help.")
+                    it.roomId,
+                    TextMessageEventContent("$userId LOGIN!")
+            )
+        }
+    }
+    appserviceService.subscribe<MemberEventContent> {
+        it as RoomEvent<MemberEventContent>
+        if (it.content.membership == MemberEventContent.Membership.INVITE &&
+                        it.content.isDirect == true
+        ) {
+            val statement =
+                    connection.prepareStatement("INSERT OR IGNORE INTO direct_rooms VALUES (?, ?)")
+            statement.setString(1, it.roomId.toString())
+            statement.setString(2, it.sender.toString())
+            statement.executeUpdate()
+            matrixApiClient.rooms.joinRoom(roomId = it.roomId, asUserId = botUserId)
+            matrixApiClient.rooms.sendMessageEvent(
+                    it.roomId,
+                    TextMessageEventContent("Hello, I'm a QQ bridge bot.\nUse `!help` for help.")
             )
         }
     }
