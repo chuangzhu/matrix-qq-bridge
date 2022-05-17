@@ -68,9 +68,55 @@ class Puppet(
                 } else loadDeviceInfoJson(deviceJson as String)
                 protocol = ANDROID_PAD
             }
-    suspend fun connect() {
+    suspend fun connect(matrixApiClient: MatrixApiClient, config: Config) {
         bot.login()
-        bot.eventChannel.subscribeAlways<GroupMessageEvent> { println(message.content) }
+        bot.groups.forEach {
+            val roomAliasId = RoomAliasId(
+                    "${config.appservice.alias_prefix}${it.id}",
+                    config.homeserver.domain
+            )
+            val result = matrixApiClient.rooms.getRoomAlias(roomAliasId)
+            if (result.isFailure) {
+                matrixApiClient.rooms.createRoom(
+                        name = it.name,
+                        roomAliasId = roomAliasId,
+                        invite = setOf(mxid),
+                        isDirect = false,
+                )
+            } else {
+                matrixApiClient.rooms.inviteUser(
+                    roomId = result.getOrNull()!!.roomId,
+                    userId = mxid,
+                    reason = "You are in this QQ group.",
+                )
+            }
+        }
+        bot.eventChannel.subscribeAlways<GroupMessageEvent> {
+            val username = "${config.appservice.username_prefix}${sender.id}"
+            matrixApiClient.authentication.register(
+                username = username,
+                isAppservice = true
+            )
+            val userId = UserId(username, config.homeserver.domain)
+            matrixApiClient.users.setDisplayName(
+                    userId = userId,
+                    displayName = sender.nick
+            )
+            val roomAliasId = RoomAliasId(
+                    "${config.appservice.alias_prefix}${subject.id}",
+                    config.homeserver.domain
+            )
+            val result = matrixApiClient.rooms.getRoomAlias(roomAliasId)
+            // TODO: null handling
+            val roomId = result.getOrNull()!!.roomId
+            matrixApiClient.rooms.inviteUser(roomId, userId)
+            matrixApiClient.rooms.joinRoom(roomId, asUserId = userId)
+            matrixApiClient.rooms.sendMessageEvent(
+                    roomId,
+                    TextMessageEventContent(message.content),
+                    asUserId = userId
+            )
+        }
     }
     // Create
     suspend fun insert() {
@@ -100,28 +146,32 @@ class Puppet(
                             """
                     )
         }
+        suspend fun getPuppet(mxid: UserId): Puppet? =
+                if (byMxid.containsKey(mxid)) byMxid[mxid]!! else null
         // Read
-        suspend fun getPuppet(mxid: UserId): Puppet? {
-            if (byMxid.containsKey(mxid)) return byMxid[mxid]!!
+        suspend fun loadAll(matrixApiClient: MatrixApiClient, config: Config) {
             val statement =
                     connection!!.prepareStatement(
-                            "SELECT qqid, password, device_json FROM puppets WHERE mxid = ?"
+                            "SELECT mxid, qqid, password, device_json FROM puppets"
                     )
-            statement.setString(1, mxid.toString())
             val rs = statement.executeQuery()
-            if (rs.next() == false) return null
-            val puppet =
-                    Puppet(
-                            mxid,
-                            rs.getLong("qqid"),
-                            rs.getString("password"),
-                            rs.getString("device_json")
-                    )
-            byMxid[mxid] = puppet
-            return puppet
+            while (rs.next()) {
+                val mxid = UserId(rs.getString("mxid"))
+                val puppet =
+                        Puppet(
+                                mxid,
+                                rs.getLong("qqid"),
+                                rs.getString("password"),
+                                rs.getString("device_json")
+                        )
+                puppet.connect(matrixApiClient, config)
+                byMxid[mxid] = puppet
+            }
         }
     }
 }
+
+class Portal(mxid: RoomId, qqid: Int) {}
 
 class EventTnxService : AppserviceEventTnxService {
     override suspend fun eventTnxProcessingState(
@@ -261,10 +311,11 @@ fun dbInit(connection: Connection) {
 suspend fun handleTextMessage(
         it: Event<TextMessageEventContent>,
         matrixApiClient: MatrixApiClient,
-        botUserId: UserId
+        config: Config
 ) {
     it as RoomEvent<TextMessageEventContent>
     val room = DirectRoom.getDirectRoom(it.roomId)
+    val botUserId = UserId(config.appservice.bot_username, config.homeserver.domain)
     if (room != null && it.sender != botUserId) {
         if (it.content.body == "!cancel") {
             matrixApiClient.rooms.sendMessageEvent(
@@ -301,7 +352,6 @@ suspend fun handleTextMessage(
                         it.roomId,
                         TextMessageEventContent("Invalid input.")
                 )
-                print(list)
                 return
             }
             val qqid =
@@ -318,7 +368,7 @@ suspend fun handleTextMessage(
                     if (list.size == 2) Puppet(room.userId, qqid, list[1])
                     else Puppet(room.userId, qqid, list[1], list[2])
             try {
-                puppet.connect()
+                puppet.connect(matrixApiClient, config)
             } catch (e: LoginFailedException) {
                 matrixApiClient.rooms.sendMessageEvent(
                         it.roomId,
@@ -364,15 +414,17 @@ fun main(args: Array<String>) {
         )
         matrixApiClient.users.setDisplayName(
                 userId = botUserId,
-                displayName = "QQ Bridge",
-                asUserId = botUserId
+                displayName = "QQ Bridge"
         )
+        Puppet.loadAll(matrixApiClient, config)
     }
     val eventTnxService = EventTnxService()
     val userService = UserService(matrixApiClient, config)
     val roomService = RoomService(matrixApiClient)
     val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
-    appserviceService.subscribe<TextMessageEventContent> { handleTextMessage(it, matrixApiClient, botUserId) }
+    appserviceService.subscribe<TextMessageEventContent> {
+        handleTextMessage(it, matrixApiClient, config)
+    }
     appserviceService.subscribe<MemberEventContent> {
         it as RoomEvent<MemberEventContent>
         if (it.content.membership == MemberEventContent.Membership.INVITE &&
@@ -380,7 +432,7 @@ fun main(args: Array<String>) {
         ) {
             val room = DirectRoom(it.roomId, it.sender)
             room.insert()
-            matrixApiClient.rooms.joinRoom(roomId = it.roomId, asUserId = botUserId)
+            matrixApiClient.rooms.joinRoom(roomId = it.roomId)
             matrixApiClient.rooms.sendMessageEvent(
                     it.roomId,
                     TextMessageEventContent("Hello, I'm a QQ bridge bot.\nUse `!help` for help.")
