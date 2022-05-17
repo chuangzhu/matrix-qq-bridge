@@ -100,7 +100,8 @@ class Puppet(
             val userId = UserId(username, config.homeserver.domain)
             matrixApiClient.users.setDisplayName(
                     userId = userId,
-                    displayName = sender.nick
+                    displayName = sender.nick,
+                    asUserId = userId
             )
             val roomAliasId = RoomAliasId(
                     "${config.appservice.alias_prefix}${subject.id}",
