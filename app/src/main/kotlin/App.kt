@@ -8,14 +8,10 @@ import io.ktor.server.netty.Netty
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
-import java.util.UUID
 import kotlin.system.exitProcess
 import kotlin.text.removePrefix
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
-import land.melty.matrixappserviceqq.config.Config
-import land.melty.matrixappserviceqq.config.RegistrationConfig
 import net.folivo.trixnity.appservice.rest.DefaultAppserviceService
 import net.folivo.trixnity.appservice.rest.MatrixAppserviceProperties
 import net.folivo.trixnity.appservice.rest.event.AppserviceEventTnxService
@@ -28,149 +24,9 @@ import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.RoomAliasId
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.UserId
-import net.folivo.trixnity.core.model.events.Event
 import net.folivo.trixnity.core.model.events.Event.RoomEvent
 import net.folivo.trixnity.core.model.events.m.room.MemberEventContent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
-import net.mamoe.mirai.BotFactory
-import net.mamoe.mirai.event.events.GroupMessageEvent
-import net.mamoe.mirai.message.data.content
-import net.mamoe.mirai.network.LoginFailedException
-import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
-import net.mamoe.mirai.utils.DeviceInfo
-
-// class PuppetLoginSolver(matrixApiClient: MatrixApiClient) : LoginSolver() {
-//     val matrixApiClient = matrixApiClient
-//     override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String? {
-//         matrixApiClient.rooms.sendMessageEvent(
-//                 roomId,
-//                 TextMessageEventContent("Captcha required, send the code from the image:")
-//         )
-//         matrixApiClient.media.upload(data, contentLength, contentType)
-//     }
-//     override val isSliderCaptchaSupported = true
-// }
-
-class Puppet(
-        val mxid: UserId,
-        val qqid: Long,
-        val password: String,
-        var deviceJson: String? = null
-) {
-    val bot =
-            BotFactory.newBot(qqid, password) {
-                if (deviceJson == null) {
-                    deviceInfo = {
-                        DeviceInfo.random().also {
-                            deviceJson = Json.encodeToString(DeviceInfo.serializer(), it)
-                        }
-                    }
-                } else loadDeviceInfoJson(deviceJson as String)
-                protocol = ANDROID_PAD
-            }
-    suspend fun connect(matrixApiClient: MatrixApiClient, config: Config) {
-        bot.login()
-        bot.groups.forEach {
-            val roomAliasId = RoomAliasId(
-                    "${config.appservice.alias_prefix}${it.id}",
-                    config.homeserver.domain
-            )
-            val result = matrixApiClient.rooms.getRoomAlias(roomAliasId)
-            if (result.isFailure) {
-                matrixApiClient.rooms.createRoom(
-                        name = it.name,
-                        roomAliasId = roomAliasId,
-                        invite = setOf(mxid),
-                        isDirect = false,
-                )
-            } else {
-                matrixApiClient.rooms.inviteUser(
-                    roomId = result.getOrNull()!!.roomId,
-                    userId = mxid,
-                    reason = "You are in this QQ group.",
-                )
-            }
-        }
-        bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-            val username = "${config.appservice.username_prefix}${sender.id}"
-            matrixApiClient.authentication.register(
-                username = username,
-                isAppservice = true
-            )
-            val userId = UserId(username, config.homeserver.domain)
-            matrixApiClient.users.setDisplayName(
-                    userId = userId,
-                    displayName = sender.nick,
-                    asUserId = userId
-            )
-            val roomAliasId = RoomAliasId(
-                    "${config.appservice.alias_prefix}${subject.id}",
-                    config.homeserver.domain
-            )
-            val result = matrixApiClient.rooms.getRoomAlias(roomAliasId)
-            // TODO: null handling
-            val roomId = result.getOrNull()!!.roomId
-            matrixApiClient.rooms.inviteUser(roomId, userId)
-            matrixApiClient.rooms.joinRoom(roomId, asUserId = userId)
-            matrixApiClient.rooms.sendMessageEvent(
-                    roomId,
-                    TextMessageEventContent(message.content),
-                    asUserId = userId
-            )
-        }
-    }
-    // Create
-    suspend fun insert() {
-        val statement =
-                connection!!.prepareStatement("INSERT OR IGNORE INTO puppets VALUES (?, ?, ?, ?)")
-        statement.setString(1, mxid.toString())
-        statement.setLong(2, qqid)
-        statement.setString(3, password)
-        statement.setString(4, deviceJson)
-        statement.executeUpdate()
-    }
-    companion object {
-        val byMxid = mutableMapOf<UserId, Puppet>()
-        var connection: Connection? = null
-        fun dbInit(connection: Connection) {
-            this.connection = connection
-            connection
-                    .createStatement()
-                    .executeUpdate(
-                            """
-                                CREATE TABLE IF NOT EXISTS puppets (
-                                    mxid TEXT PRIMARY KEY NOT NULL,
-                                    qqid INTEGER NOT NULL,
-                                    password TEXT NOT NULL,
-                                    device_json TEXT NOT NULL
-                                )
-                            """
-                    )
-        }
-        suspend fun getPuppet(mxid: UserId): Puppet? =
-                if (byMxid.containsKey(mxid)) byMxid[mxid]!! else null
-        // Read
-        suspend fun loadAll(matrixApiClient: MatrixApiClient, config: Config) {
-            val statement =
-                    connection!!.prepareStatement(
-                            "SELECT mxid, qqid, password, device_json FROM puppets"
-                    )
-            val rs = statement.executeQuery()
-            while (rs.next()) {
-                val mxid = UserId(rs.getString("mxid"))
-                val puppet =
-                        Puppet(
-                                mxid,
-                                rs.getLong("qqid"),
-                                rs.getString("password"),
-                                rs.getString("device_json")
-                        )
-                puppet.connect(matrixApiClient, config)
-                byMxid[mxid] = puppet
-            }
-        }
-    }
-}
 
 class Portal(mxid: RoomId, qqid: Int) {}
 
@@ -188,7 +44,7 @@ class UserService(override val matrixApiClient: MatrixApiClient, val config: Con
     override suspend fun userExistingState(
             userId: UserId
     ): AppserviceUserService.UserExistingState {
-        val qqid = userId.localpart.removePrefix(config.appservice.username_prefix)
+        val qqid = userId.localpart.removePrefix(config.appservice.usernamePrefix)
         println(qqid)
         return AppserviceUserService.UserExistingState.CAN_BE_CREATED
     }
@@ -210,176 +66,9 @@ class RoomService(override val matrixApiClient: MatrixApiClient) : AppserviceRoo
     override suspend fun onCreatedRoom(roomAlias: RoomAliasId, roomId: RoomId) {}
 }
 
-fun generateRegistration(config: Config) =
-        RegistrationConfig(
-                id = config.appservice.id,
-                as_token = UUID.randomUUID().toString(),
-                hs_token = UUID.randomUUID().toString(),
-                url = config.appservice.address,
-                sender_localpart = config.appservice.bot_username,
-                namespaces =
-                        RegistrationConfig.Namespaces(
-                                users =
-                                        listOf(
-                                                RegistrationConfig.Namespaces.Pattern(
-                                                        exclusive = true,
-                                                        regex =
-                                                                "@${config.appservice.username_prefix}.*:${config.homeserver.domain}"
-                                                ),
-                                                // The bot itself
-                                                RegistrationConfig.Namespaces.Pattern(
-                                                        exclusive = true,
-                                                        regex =
-                                                                "@${config.appservice.bot_username}:${config.homeserver.domain}"
-                                                )
-                                        ),
-                                aliases =
-                                        listOf(
-                                                RegistrationConfig.Namespaces.Pattern(
-                                                        exclusive = true,
-                                                        regex =
-                                                                "#${config.appservice.alias_prefix}.*:${config.homeserver.domain}"
-                                                )
-                                        )
-                        )
-        )
-
-class DirectRoom(val roomId: RoomId, var userId: UserId, var state: Command? = Command.DEFAULT) {
-    enum class Command(val value: Int) {
-        DEFAULT(0),
-        LOGIN(1);
-        companion object {
-            fun fromInt(value: Int) = Command.values().first { it.value == value }
-        }
-    }
-    // Create
-    fun insert() {
-        val statement =
-                connection!!.prepareStatement("INSERT OR IGNORE INTO direct_rooms VALUES (?, ?, ?)")
-        statement.setString(1, roomId.toString())
-        statement.setString(2, userId.toString())
-        statement.setInt(3, state!!.value)
-        statement.executeUpdate()
-    }
-    // Update
-    fun update() {
-        val statement =
-                connection!!.prepareStatement(
-                        """UPDATE direct_rooms SET user_id = ?, state = ? WHERE room_id = ?"""
-                )
-        statement.setString(1, userId.toString())
-        statement.setInt(2, state!!.value)
-        statement.setString(3, roomId.toString())
-        statement.executeUpdate()
-    }
-    companion object {
-        var connection: Connection? = null
-        fun dbInit(connection: Connection) {
-            this.connection = connection
-            connection
-                    .createStatement()
-                    .executeUpdate(
-                            """
-                                CREATE TABLE IF NOT EXISTS direct_rooms (
-                                    room_id TEXT PRIMARY KEY NOT NULL,
-                                    user_id TEXT NOT NULL,
-                                    state INTEGER NOT NULL
-                                )
-                            """
-                    )
-        }
-        // Read
-        fun getDirectRoom(roomId: RoomId): DirectRoom? {
-            val statement =
-                    connection!!.prepareStatement("SELECT * FROM direct_rooms WHERE room_id = ?")
-            statement.setString(1, roomId.toString())
-            val rs = statement.executeQuery()
-            if (rs.next() == false) return null
-            return DirectRoom(
-                    roomId = RoomId(rs.getString("room_id")),
-                    userId = UserId(rs.getString("user_id")),
-                    state = Command.fromInt(rs.getInt("state")),
-            )
-        }
-    }
-}
-
 fun dbInit(connection: Connection) {
-    DirectRoom.dbInit(connection)
+    ManagementRoom.dbInit(connection)
     Puppet.dbInit(connection)
-}
-
-suspend fun handleTextMessage(
-        it: Event<TextMessageEventContent>,
-        matrixApiClient: MatrixApiClient,
-        config: Config
-) {
-    it as RoomEvent<TextMessageEventContent>
-    val room = DirectRoom.getDirectRoom(it.roomId)
-    val botUserId = UserId(config.appservice.bot_username, config.homeserver.domain)
-    if (room != null && it.sender != botUserId) {
-        if (it.content.body == "!cancel") {
-            matrixApiClient.rooms.sendMessageEvent(
-                    it.roomId,
-                    TextMessageEventContent("Command canceled.")
-            )
-            room.state = DirectRoom.Command.DEFAULT
-            room.update()
-        } else if (room.state == DirectRoom.Command.DEFAULT) {
-            if (it.content.body == "!login") {
-                val puppet = Puppet.getPuppet(room.userId)
-                if (puppet != null) {
-                    matrixApiClient.rooms.sendMessageEvent(
-                            it.roomId,
-                            TextMessageEventContent("You've already logged in.")
-                    )
-                } else {
-                    matrixApiClient.rooms.sendMessageEvent(
-                            it.roomId,
-                            TextMessageEventContent(
-                                    "Please send your QQ number in the first line, " +
-                                            "and your password in the second line. " +
-                                            "Optionally, you can send a minified device.json in the third line."
-                            )
-                    )
-                    room.state = DirectRoom.Command.LOGIN
-                    room.update()
-                }
-            }
-        } else if (room.state == DirectRoom.Command.LOGIN) {
-            val list = it.content.body.trim().split("\n")
-            if (list.size < 2 || list.size > 3) {
-                matrixApiClient.rooms.sendMessageEvent(
-                        it.roomId,
-                        TextMessageEventContent("Invalid input.")
-                )
-                return
-            }
-            val qqid =
-                    try {
-                        list[0].toLong()
-                    } catch (e: NumberFormatException) {
-                        matrixApiClient.rooms.sendMessageEvent(
-                                it.roomId,
-                                TextMessageEventContent("Invalid QQ number `${list[0]}`.")
-                        )
-                        return
-                    }
-            val puppet =
-                    if (list.size == 2) Puppet(room.userId, qqid, list[1])
-                    else Puppet(room.userId, qqid, list[1], list[2])
-            try {
-                puppet.connect(matrixApiClient, config)
-            } catch (e: LoginFailedException) {
-                matrixApiClient.rooms.sendMessageEvent(
-                        it.roomId,
-                        TextMessageEventContent("Login failed.")
-                )
-                return
-            }
-            puppet.insert()
-        }
-    }
 }
 
 fun main(args: Array<String>) {
@@ -391,7 +80,7 @@ fun main(args: Array<String>) {
         println(
                 Yaml.default.encodeToString(
                         RegistrationConfig.serializer(),
-                        generateRegistration(config)
+                        RegistrationConfig.generate(config)
                 )
         )
         return
@@ -401,22 +90,19 @@ fun main(args: Array<String>) {
                     RegistrationConfig.serializer(),
                     File(args[1]).readText()
             )
-    val connection = DriverManager.getConnection("jdbc:sqlite:matrix-appservice-qq.db")
+    val connection = DriverManager.getConnection("jdbc:${config.appservice.database}")
     dbInit(connection)
     val matrixApiClient =
             MatrixApiClient(baseUrl = Url(config.homeserver.address)).apply {
-                accessToken.value = registrationConfig.as_token
+                accessToken.value = registrationConfig.asToken
             }
-    val botUserId = UserId(config.appservice.bot_username, config.homeserver.domain)
+    val botUserId = UserId(config.appservice.botUsername, config.homeserver.domain)
     runBlocking {
         matrixApiClient.authentication.register(
                 isAppservice = true,
-                username = config.appservice.bot_username
+                username = config.appservice.botUsername
         )
-        matrixApiClient.users.setDisplayName(
-                userId = botUserId,
-                displayName = "QQ Bridge"
-        )
+        matrixApiClient.users.setDisplayName(userId = botUserId, displayName = "QQ Bridge")
         Puppet.loadAll(matrixApiClient, config)
     }
     val eventTnxService = EventTnxService()
@@ -424,14 +110,15 @@ fun main(args: Array<String>) {
     val roomService = RoomService(matrixApiClient)
     val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
     appserviceService.subscribe<TextMessageEventContent> {
-        handleTextMessage(it, matrixApiClient, config)
+        ManagementRoom.handleTextMessage(it, matrixApiClient, config)
     }
     appserviceService.subscribe<MemberEventContent> {
         it as RoomEvent<MemberEventContent>
         if (it.content.membership == MemberEventContent.Membership.INVITE &&
-                        it.content.isDirect == true
+                        it.content.isDirect == true &&
+                        it.sender != botUserId
         ) {
-            val room = DirectRoom(it.roomId, it.sender)
+            val room = ManagementRoom(it.roomId, it.sender)
             room.insert()
             matrixApiClient.rooms.joinRoom(roomId = it.roomId)
             matrixApiClient.rooms.sendMessageEvent(
@@ -448,7 +135,7 @@ fun main(args: Array<String>) {
                     port = config.appservice.port
             ) {
                 matrixAppserviceModule(
-                        MatrixAppserviceProperties(registrationConfig.hs_token),
+                        MatrixAppserviceProperties(registrationConfig.hsToken),
                         appserviceService
                 )
             }

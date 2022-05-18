@@ -1,0 +1,21 @@
+homeserver:
+  address: http://localhost:8008
+  domain: localhost
+appservice:
+  # What address homeserver should talk to
+  address: http://127.0.0.1:8245
+  # What IP and port appservice should listen on
+  hostname: 127.0.0.1
+  port: 8245
+  # database: postgresql://localhost/matrix-appsercie-qq?user=fred&password=secret
+  database: sqlite:matrix-appservice-qq.db
+  id: qq
+  bot_username: qqbridge
+  username_prefix: _qq_
+  alias_prefix: _qq_
+bridge:
+  # Available permission levels: none, user, admin
+  # Match from top to bottom, defaults to none
+  permissions:
+    '@test:localhost': admin
+    'localhost': user

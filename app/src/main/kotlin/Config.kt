@@ -1,9 +1,12 @@
-package land.melty.matrixappserviceqq.config
+package land.melty.matrixappserviceqq
 
+import java.util.UUID
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.folivo.trixnity.core.model.UserId
 
 @Serializable
-data class Config(val homeserver: Homeserver, val appservice: Appservice) {
+data class Config(val homeserver: Homeserver, val appservice: Appservice, val bridge: Bridge) {
     @Serializable data class Homeserver(val address: String, val domain: String)
     @Serializable
     data class Appservice(
@@ -12,23 +15,74 @@ data class Config(val homeserver: Homeserver, val appservice: Appservice) {
             val address: String = "http://$hostname:$port",
             val database: String,
             val id: String = "qq",
-            val bot_username: String = "qqbridge",
-            val username_prefix: String = "_qq_",
-            val alias_prefix: String = "_qq_"
+            @SerialName("bot_username") val botUsername: String = "qqbridge",
+            @SerialName("username_prefix") val usernamePrefix: String = "_qq_",
+            @SerialName("alias_prefix") val aliasPrefix: String = "_qq_"
     )
+    @Serializable
+    data class Bridge(val permissions: Map<String, Permission>) {
+        @Serializable
+        enum class Permission {
+            @SerialName("none") NONE,
+            @SerialName("user") USER,
+            @SerialName("admin") ADMIN
+        }
+        fun getPermission(userId: UserId): Permission {
+            permissions.forEach {
+                if (it.key == userId.toString() || it.key == userId.localpart) return it.value
+            }
+            return Permission.NONE
+        }
+    }
 }
 
 @Serializable
 data class RegistrationConfig(
         val id: String,
-        val as_token: String,
-        val hs_token: String,
+        @SerialName("as_token") val asToken: String,
+        @SerialName("hs_token") val hsToken: String,
         val url: String,
-        val sender_localpart: String,
+        @SerialName("sender_localpart") val senderLocalpart: String,
         val namespaces: Namespaces
 ) {
     @Serializable
     data class Namespaces(val users: List<Pattern>, val aliases: List<Pattern>) {
         @Serializable data class Pattern(val exclusive: Boolean, val regex: String)
+    }
+
+    companion object {
+        fun generate(config: Config) =
+                RegistrationConfig(
+                        id = config.appservice.id,
+                        asToken = UUID.randomUUID().toString(),
+                        hsToken = UUID.randomUUID().toString(),
+                        url = config.appservice.address,
+                        senderLocalpart = config.appservice.botUsername,
+                        namespaces =
+                                Namespaces(
+                                        users =
+                                                listOf(
+                                                        Namespaces.Pattern(
+                                                                exclusive = true,
+                                                                regex =
+                                                                        "@${config.appservice.usernamePrefix}.*:${config.homeserver.domain}"
+                                                        ),
+                                                        // The bot itself
+                                                        Namespaces.Pattern(
+                                                                exclusive = true,
+                                                                regex =
+                                                                        "@${config.appservice.botUsername}:${config.homeserver.domain}"
+                                                        )
+                                                ),
+                                        aliases =
+                                                listOf(
+                                                        Namespaces.Pattern(
+                                                                exclusive = true,
+                                                                regex =
+                                                                        "#${config.appservice.aliasPrefix}.*:${config.homeserver.domain}"
+                                                        )
+                                                )
+                                )
+                )
     }
 }
