@@ -1,5 +1,14 @@
 package land.melty.matrixappserviceqq
 
+import io.ktor.client.HttpClient
+import io.ktor.client.call.receive
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.features.UserAgent
+import io.ktor.client.request.get
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.contentLength
+import io.ktor.http.contentType
+import io.ktor.utils.io.ByteReadChannel
 import java.sql.Connection
 import kotlinx.serialization.json.Json
 import net.folivo.trixnity.client.api.MatrixApiClient
@@ -74,6 +83,18 @@ class Puppet(
                     displayName = "${sender.nick} (QQ)",
                     asUserId = userId
             )
+            // Avatar
+            val client = HttpClient(CIO) { install(UserAgent) { agent = "QQClient" } }
+            val response: HttpResponse = client.get(sender.avatarUrl)
+            val channel: ByteReadChannel = response.receive()
+            val avatarUrl =
+                    matrixApiClient.media.upload(
+                            channel,
+                            response.contentLength()!!,
+                            response.contentType()!!
+                    ).getOrNull()
+            matrixApiClient.users.setAvatarUrl(userId, avatarUrl!!.contentUri, asUserId = userId)
+            // Send the message
             val roomAliasId =
                     RoomAliasId(
                             "${config.appservice.aliasPrefix}${subject.id}",
