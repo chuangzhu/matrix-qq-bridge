@@ -4,6 +4,7 @@ import java.util.UUID
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.RoomAliasId
 
 @Serializable
 data class Config(val homeserver: Homeserver, val appservice: Appservice, val bridge: Bridge) {
@@ -33,6 +34,14 @@ data class Config(val homeserver: Homeserver, val appservice: Appservice, val br
             }
             return Permission.NONE
         }
+    }
+    fun getGhostId(qqid: Long): UserId {
+        val username = "${appservice.usernamePrefix}${qqid}"
+        return UserId(username, homeserver.domain)
+    }
+    fun getPortalAliasId(qqid: Long): RoomAliasId {
+        val alias = "${appservice.aliasPrefix}${qqid}"
+        return RoomAliasId(alias, homeserver.domain)
     }
 }
 

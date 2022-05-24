@@ -12,7 +12,7 @@ import net.mamoe.mirai.network.LoginFailedException
 class ManagementRoom(
         val roomId: RoomId,
         var userId: UserId,
-        var state: Command? = Command.DEFAULT
+        var state: Command = Command.DEFAULT
 ) {
 
     enum class Command(val value: Int) {
@@ -31,7 +31,7 @@ class ManagementRoom(
                 )
         statement.setString(1, roomId.toString())
         statement.setString(2, userId.toString())
-        statement.setInt(3, state!!.value)
+        statement.setInt(3, state.value)
         statement.executeUpdate()
     }
 
@@ -42,7 +42,7 @@ class ManagementRoom(
                         """UPDATE management_rooms SET user_id = ?, state = ? WHERE room_id = ?"""
                 )
         statement.setString(1, userId.toString())
-        statement.setInt(2, state!!.value)
+        statement.setInt(2, state.value)
         statement.setString(3, roomId.toString())
         statement.executeUpdate()
     }
