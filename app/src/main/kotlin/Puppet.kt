@@ -81,36 +81,13 @@ class Puppet(
             }
         }
         bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-            // Registration
-            // TODO: replace this with Ghost
-            val username = "${config.appservice.usernamePrefix}${sender.id}"
-            matrixApiClient.authentication.register(username = username, isAppservice = true)
-            val userId = UserId(username, config.homeserver.domain)
-            matrixApiClient.users.setDisplayName(
-                    userId = userId,
-                    displayName = "${sender.nick} (QQ)",
-                    asUserId = userId
-            )
-            // Avatar
-            val client = HttpClient(CIO) { install(UserAgent) { agent = "QQClient" } }
-            val response: HttpResponse = client.get(sender.avatarUrl)
-            val channel: ByteReadChannel = response.receive()
-            val avatarUrl =
-                    matrixApiClient
-                            .media
-                            .upload(channel, response.contentLength()!!, response.contentType()!!)
-                            .getOrNull()
-            matrixApiClient.users.setAvatarUrl(userId, avatarUrl!!.contentUri, asUserId = userId)
+            val ghost = Ghost.get(sender, matrixApiClient, config)
             // Join the room
             // TODO: replace this with Portal
-            val roomAliasId =
-                    RoomAliasId(
-                            "${config.appservice.aliasPrefix}${subject.id}",
-                            config.homeserver.domain
-                    )
+            val roomAliasId = config.getPortalAliasId(subject.id)
             val roomId = matrixApiClient.rooms.getRoomAlias(roomAliasId).getOrThrow().roomId
-            matrixApiClient.rooms.inviteUser(roomId, userId)
-            matrixApiClient.rooms.joinRoom(roomId, asUserId = userId)
+            matrixApiClient.rooms.inviteUser(roomId, ghost.userId)
+            matrixApiClient.rooms.joinRoom(roomId, asUserId = ghost.userId)
             // Send the message
             val source = message.get(MessageSource.Key)
             if (getMessage(source!!, MessageSourceKind.GROUP) != null) return@subscribeAlways
@@ -120,7 +97,7 @@ class Puppet(
                             .sendMessageEvent(
                                     roomId,
                                     TextMessageEventContent(message.content),
-                                    asUserId = userId
+                                    asUserId = ghost.userId
                             )
                             .getOrThrow()
             saveMessage(source, eventId, MessageSourceKind.GROUP)

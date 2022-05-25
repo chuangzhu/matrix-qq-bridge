@@ -9,26 +9,17 @@ import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
 import kotlin.system.exitProcess
-import kotlin.text.removePrefix
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.serializer
 import net.folivo.trixnity.appservice.rest.DefaultAppserviceService
 import net.folivo.trixnity.appservice.rest.MatrixAppserviceProperties
 import net.folivo.trixnity.appservice.rest.event.AppserviceEventTnxService
 import net.folivo.trixnity.appservice.rest.matrixAppserviceModule
-import net.folivo.trixnity.appservice.rest.room.AppserviceRoomService
-import net.folivo.trixnity.appservice.rest.room.CreateRoomParameter
-import net.folivo.trixnity.appservice.rest.user.AppserviceUserService
-import net.folivo.trixnity.appservice.rest.user.RegisterUserParameter
 import net.folivo.trixnity.client.api.MatrixApiClient
-import net.folivo.trixnity.core.model.RoomAliasId
-import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.Event.RoomEvent
 import net.folivo.trixnity.core.model.events.m.room.MemberEventContent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
-
-class Portal(mxid: RoomId, qqid: Int) {}
 
 class EventTnxService : AppserviceEventTnxService {
     override suspend fun eventTnxProcessingState(
@@ -39,36 +30,10 @@ class EventTnxService : AppserviceEventTnxService {
     override suspend fun onEventTnxProcessed(tnxId: String) {}
 }
 
-class UserService(override val matrixApiClient: MatrixApiClient, val config: Config) :
-        AppserviceUserService {
-    override suspend fun userExistingState(
-            userId: UserId
-    ): AppserviceUserService.UserExistingState {
-        val qqid = userId.localpart.removePrefix(config.appservice.usernamePrefix)
-        println(qqid)
-        return AppserviceUserService.UserExistingState.CAN_BE_CREATED
-    }
-    override suspend fun getRegisterUserParameter(userId: UserId): RegisterUserParameter {
-        return RegisterUserParameter(displayName = "Alice (QQ)")
-    }
-    override suspend fun onRegisteredUser(userId: UserId) {}
-}
-
-class RoomService(override val matrixApiClient: MatrixApiClient) : AppserviceRoomService {
-    override suspend fun roomExistingState(
-            roomAlias: RoomAliasId
-    ): AppserviceRoomService.RoomExistingState {
-        return AppserviceRoomService.RoomExistingState.CAN_BE_CREATED
-    }
-    override suspend fun getCreateRoomParameter(roomAlias: RoomAliasId): CreateRoomParameter {
-        return CreateRoomParameter()
-    }
-    override suspend fun onCreatedRoom(roomAlias: RoomAliasId, roomId: RoomId) {}
-}
-
 fun dbInit(connection: Connection) {
     ManagementRoom.dbInit(connection)
     Puppet.dbInit(connection)
+    Ghost.dbInit(connection)
 }
 
 fun main(args: Array<String>) {
