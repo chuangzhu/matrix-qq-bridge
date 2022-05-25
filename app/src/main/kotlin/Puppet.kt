@@ -1,5 +1,6 @@
 package land.melty.matrixappserviceqq
 
+// import net.mamoe.mirai.utils.LoginSolver
 import io.ktor.client.HttpClient
 import io.ktor.client.call.receive
 import io.ktor.client.engine.cio.CIO
@@ -61,22 +62,25 @@ class Puppet(
         bot.eventChannel.subscribeAlways<GroupMessageEvent> {
             val ghost = Ghost.get(sender, matrixApiClient, config)
             val portal = Portal.get(subject, matrixApiClient, config)
+            // TODO: store relationships
             matrixApiClient.rooms.inviteUser(portal.roomId!!, mxid)
             matrixApiClient.rooms.inviteUser(portal.roomId!!, ghost.userId)
             matrixApiClient.rooms.joinRoom(portal.roomId!!, asUserId = ghost.userId)
             // Send the message
             val source = message.get(MessageSource.Key)
-            if (getMessage(source!!, MessageSourceKind.GROUP) != null) return@subscribeAlways
-            val eventId =
-                    matrixApiClient
-                            .rooms
-                            .sendMessageEvent(
-                                    portal.roomId!!,
-                                    TextMessageEventContent(message.content),
-                                    asUserId = ghost.userId
-                            )
-                            .getOrThrow()
-            saveMessage(source, eventId, MessageSourceKind.GROUP)
+            if (Messages.getEventId(source!!, MessageSourceKind.GROUP) != null) return@subscribeAlways
+            message.toRoomMessageEventContents(matrixApiClient).forEach { rmec ->
+                val eventId =
+                        matrixApiClient
+                                .rooms
+                                .sendMessageEvent(
+                                        portal.roomId!!,
+                                        rmec,
+                                        asUserId = ghost.userId
+                                )
+                                .getOrThrow()
+                Messages.save(source, eventId, MessageSourceKind.GROUP)
+            }
         }
     }
 
@@ -88,55 +92,6 @@ class Puppet(
         statement.setLong(2, qqid)
         statement.setString(3, password)
         statement.setString(4, deviceJson)
-        statement.executeUpdate()
-    }
-
-    fun getMessage(source: MessageSource, kind: MessageSourceKind): EventId? {
-        val statement =
-                connection!!.prepareStatement(
-                        """
-                            SELECT event_id FROM messages
-                                WHERE kind = ?
-                                AND sender = ?
-                                AND target = ?
-                                AND id = ?
-                                AND internal_id = ?
-                                AND time = ?
-                        """
-                )
-        statement.setString(1, kind.toString())
-        statement.setLong(2, source.fromId)
-        statement.setLong(3, source.targetId)
-        statement.setInt(4, source.ids[0])
-        statement.setInt(5, source.internalIds[0])
-        statement.setInt(6, source.time)
-        val rs = statement.executeQuery()
-        if (rs.next() == false) return null
-        return EventId(rs.getString("event_id"))
-    }
-    fun getMessage(eventId: EventId, bot: Bot): MessageSource? {
-        val statement = connection!!.prepareStatement("SELECT * FROM messages WHERE event_id = ?")
-        statement.setString(1, eventId.toString())
-        val rs = statement.executeQuery()
-        if (rs.next() == false) return null
-        return bot.buildMessageSource(MessageSourceKind.valueOf(rs.getString("kind"))) {
-            sender(rs.getLong("sender"))
-            target(rs.getLong("target"))
-            id(rs.getInt("id"))
-            internalId(rs.getInt("internal_id"))
-            time(rs.getInt("time"))
-        }
-    }
-    fun saveMessage(source: MessageSource, eventId: EventId, kind: MessageSourceKind) {
-        val statement =
-                connection!!.prepareStatement("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?)")
-        statement.setString(1, kind.toString())
-        statement.setLong(2, source.fromId)
-        statement.setLong(3, source.targetId)
-        statement.setInt(4, source.ids[0])
-        statement.setInt(5, source.internalIds[0])
-        statement.setInt(6, source.time)
-        statement.setString(7, eventId.full)
         statement.executeUpdate()
     }
 
@@ -153,19 +108,6 @@ class Puppet(
                             qqid INTEGER NOT NULL,
                             password TEXT NOT NULL,
                             device_json TEXT NOT NULL
-                        )
-                    """
-            )
-            statement.executeUpdate(
-                    """
-                        CREATE TABLE IF NOT EXISTS messages (
-                            kind TEXT NOT NULL,
-                            sender INTEGER NOT NULL,
-                            target INTEGER NOT NULL,
-                            id INTEGER NOT NULL,
-                            internal_id INTEGER NOT NULL,
-                            time INTEGER NOT NULL,
-                            event_id TEXT NOT NULL
                         )
                     """
             )

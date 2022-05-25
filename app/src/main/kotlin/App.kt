@@ -1,6 +1,5 @@
 package land.melty.matrixappserviceqq
 
-// import net.mamoe.mirai.utils.LoginSolver
 import com.charleskorn.kaml.Yaml
 import io.ktor.http.Url
 import io.ktor.server.engine.embeddedServer
@@ -35,6 +34,7 @@ fun dbInit(connection: Connection) {
     Puppet.dbInit(connection)
     Ghost.dbInit(connection)
     Portal.dbInit(connection)
+    Messages.dbInit(connection)
 }
 
 fun main(args: Array<String>) {

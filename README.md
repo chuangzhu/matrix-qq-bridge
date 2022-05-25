@@ -34,3 +34,4 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [ ] Stranger nick
     * [ ] Stranger avatar
   * [ ] Double puppeting
+  * [ ] Relay userbot
