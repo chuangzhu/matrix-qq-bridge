@@ -34,6 +34,7 @@ fun dbInit(connection: Connection) {
     ManagementRoom.dbInit(connection)
     Puppet.dbInit(connection)
     Ghost.dbInit(connection)
+    Portal.dbInit(connection)
 }
 
 fun main(args: Array<String>) {
@@ -72,7 +73,7 @@ fun main(args: Array<String>) {
     }
     val eventTnxService = EventTnxService()
     val userService = UserService(matrixApiClient, config)
-    val roomService = RoomService(matrixApiClient)
+    val roomService = RoomService(matrixApiClient, config)
     val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
     appserviceService.subscribe<TextMessageEventContent> {
         ManagementRoom.handleTextMessage(it, matrixApiClient, config)

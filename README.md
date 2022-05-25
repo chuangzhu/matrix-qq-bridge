@@ -16,10 +16,10 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
   * [ ] Group permissions
   * [ ] Membership actions (invite/kick/join/leave)
   * [ ] Initial chat metadata
-    * [ ] Group name
-    * [ ] Group avatar
-    * [ ] Group member name
-    * [ ] Group member avatar
+    * [x] Group name
+    * [x] Group avatar
+    * [x] Group member name
+    * [x] Group member avatar
     * [ ] Contact nick
     * [ ] Contact avatar
     * [ ] Stranger nick
@@ -33,3 +33,4 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [ ] Contact avatar
     * [ ] Stranger nick
     * [ ] Stranger avatar
+  * [ ] Double puppeting

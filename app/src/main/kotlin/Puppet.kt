@@ -58,36 +58,12 @@ class Puppet(
 
     suspend fun connect(matrixApiClient: MatrixApiClient, config: Config) {
         bot.login()
-        bot.groups.forEach {
-            val roomAliasId =
-                    RoomAliasId(
-                            "${config.appservice.aliasPrefix}${it.id}",
-                            config.homeserver.domain
-                    )
-            val result = matrixApiClient.rooms.getRoomAlias(roomAliasId)
-            if (result.isFailure) {
-                matrixApiClient.rooms.createRoom(
-                        name = it.name,
-                        roomAliasId = roomAliasId,
-                        invite = setOf(mxid),
-                        isDirect = false,
-                )
-            } else {
-                matrixApiClient.rooms.inviteUser(
-                        roomId = result.getOrNull()!!.roomId,
-                        userId = mxid,
-                        reason = "You are in this QQ group.",
-                )
-            }
-        }
         bot.eventChannel.subscribeAlways<GroupMessageEvent> {
             val ghost = Ghost.get(sender, matrixApiClient, config)
-            // Join the room
-            // TODO: replace this with Portal
-            val roomAliasId = config.getPortalAliasId(subject.id)
-            val roomId = matrixApiClient.rooms.getRoomAlias(roomAliasId).getOrThrow().roomId
-            matrixApiClient.rooms.inviteUser(roomId, ghost.userId)
-            matrixApiClient.rooms.joinRoom(roomId, asUserId = ghost.userId)
+            val portal = Portal.get(subject, matrixApiClient, config)
+            matrixApiClient.rooms.inviteUser(portal.roomId!!, mxid)
+            matrixApiClient.rooms.inviteUser(portal.roomId!!, ghost.userId)
+            matrixApiClient.rooms.joinRoom(portal.roomId!!, asUserId = ghost.userId)
             // Send the message
             val source = message.get(MessageSource.Key)
             if (getMessage(source!!, MessageSourceKind.GROUP) != null) return@subscribeAlways
@@ -95,7 +71,7 @@ class Puppet(
                     matrixApiClient
                             .rooms
                             .sendMessageEvent(
-                                    roomId,
+                                    portal.roomId!!,
                                     TextMessageEventContent(message.content),
                                     asUserId = ghost.userId
                             )

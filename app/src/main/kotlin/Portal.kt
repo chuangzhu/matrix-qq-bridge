@@ -1,19 +1,152 @@
 package land.melty.matrixappserviceqq
 
+import io.ktor.client.HttpClient
+import io.ktor.client.call.*
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.features.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.http.content.*
+import io.ktor.utils.io.*
+import java.sql.Connection
 import net.folivo.trixnity.appservice.rest.room.AppserviceRoomService
 import net.folivo.trixnity.appservice.rest.room.CreateRoomParameter
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.RoomAliasId
 import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.m.room.AvatarEventContent
+import net.mamoe.mirai.Bot
+import net.mamoe.mirai.contact.Group
 
-class Portal(mxid: RoomId, qqid: Int) {}
+class Portal(
+        val qqid: Long,
+        var roomId: RoomId?,
+        var name: String,
+        var avatarUrl: String?,
+        val matrixApiClient: MatrixApiClient,
+        val config: Config
+) {
+    val roomAliasId = config.getPortalAliasId(qqid)
+    suspend fun create() {
+        roomId =
+                matrixApiClient
+                        .rooms
+                        .createRoom(
+                                name = name,
+                                roomAliasId = roomAliasId,
+                                isDirect = false,
+                        )
+                        .getOrThrow()
+    }
 
-class RoomService(override val matrixApiClient: MatrixApiClient) : AppserviceRoomService {
+    suspend fun setAvatar(group: Group) {
+        val client = HttpClient(CIO) { install(UserAgent) { agent = "QQClient" } }
+        val response: HttpResponse = client.get(group.avatarUrl)
+        val bytes: ByteReadChannel = response.receive()
+        avatarUrl =
+                matrixApiClient
+                        .media
+                        .upload(bytes, response.contentLength()!!, response.contentType()!!)
+                        .getOrThrow()
+                        .contentUri
+        matrixApiClient.rooms.sendStateEvent(roomId!!, AvatarEventContent(avatarUrl!!))
+    }
+
+    // Update
+    fun update() {
+        val statement =
+                connection!!.prepareStatement(
+                        "UPDATE portal SET room_id = ?, name = ?, avatar_url = ? WHERE qqid = ?"
+                )
+        statement.setString(1, name)
+        statement.setString(2, avatarUrl)
+        statement.setLong(3, qqid)
+        statement.executeUpdate()
+    }
+    // Create
+    fun insert() {
+        val statement =
+                connection!!.prepareStatement("INSERT OR IGNORE INTO portal VALUES (?, ?, ?, ?)")
+        statement.setLong(1, qqid)
+        statement.setString(2, roomId!!.toString())
+        statement.setString(3, name)
+        statement.setString(4, avatarUrl)
+        statement.executeUpdate()
+    }
+
+    companion object {
+        var connection: Connection? = null
+        fun dbInit(connection: Connection) {
+            this.connection = connection
+            connection
+                    .createStatement()
+                    .executeUpdate(
+                            """
+                                CREATE TABLE IF NOT EXISTS portal (
+                                    qqid INTEGER PRIMARY KEY NOT NULL,
+                                    room_id TEXT NOT NULL,
+                                    name TEXT NOT NULL,
+                                    avatar_url TEXT
+                                )
+                            """
+                    )
+        }
+        suspend fun get(group: Group, matrixApiClient: MatrixApiClient, config: Config): Portal {
+            // Read
+            val statement = connection!!.prepareStatement("SELECT * FROM portal WHERE qqid = ?")
+            statement.setLong(1, group.id)
+            val rs = statement.executeQuery()
+            if (rs.next())
+                    return Portal(
+                            qqid = group.id,
+                            roomId = RoomId(rs.getString("room_id")),
+                            name = rs.getString("name"),
+                            avatarUrl = rs.getString("avatar_url"),
+                            matrixApiClient,
+                            config
+                    )
+            // Create
+            val portal = Portal(group.id, roomId = null, group.name, avatarUrl = null, matrixApiClient, config)
+            portal.create()
+            portal.setAvatar(group)
+            portal.insert()
+            return portal
+        }
+        suspend fun get(qqid: Long, matrixApiClient: MatrixApiClient, config: Config): Portal? {
+            Bot.instances.forEach { bot ->
+                val group = bot.getGroup(qqid)
+                if (group != null) return get(group, matrixApiClient, config)
+            }
+            return null
+        }
+        suspend fun get(
+                roomAliasId: RoomAliasId,
+                matrixApiClient: MatrixApiClient,
+                config: Config
+        ): Portal? {
+            val qqid =
+                    roomAliasId
+                            .localpart
+                            .removePrefix(config.appservice.usernamePrefix)
+                            .toLongOrNull()
+                            ?: return null
+            return Portal.get(qqid, matrixApiClient, config)
+        }
+    }
+}
+
+class RoomService(override val matrixApiClient: MatrixApiClient, val config: Config) :
+        AppserviceRoomService {
     override suspend fun roomExistingState(
             roomAlias: RoomAliasId
     ): AppserviceRoomService.RoomExistingState {
-        return AppserviceRoomService.RoomExistingState.CAN_BE_CREATED
+        Portal.get(roomAlias, matrixApiClient, config)
+                ?: return AppserviceRoomService.RoomExistingState.DOES_NOT_EXISTS
+        return AppserviceRoomService.RoomExistingState.EXISTS
     }
+    // Stub
     override suspend fun getCreateRoomParameter(roomAlias: RoomAliasId): CreateRoomParameter {
         return CreateRoomParameter()
     }
