@@ -6,13 +6,17 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
   * [ ] Message content
     * [x] Text
     * [ ] Files
-    * [ ] Picture
+    * [x] Picture
     * [ ] Sticker
     * [ ] Emoji
-  * [ ] Message reply
-  * [ ] Message reactions
+    * [ ] Message reply
+    * [ ] Mention
+    * [ ] Nudge
+    * [ ] Withdraw message
+  * [x] Group message
+  * [ ] Friend message
+  * [ ] Stranger message
   * [ ] Presence
-  * [ ] Nudge
   * [ ] Group permissions
   * [ ] Membership actions (invite/kick/join/leave)
   * [ ] Initial chat metadata
@@ -20,8 +24,8 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [x] Group avatar
     * [x] Group member name
     * [x] Group member avatar
-    * [ ] Contact nick
-    * [ ] Contact avatar
+    * [ ] Friend nick
+    * [ ] Friend avatar
     * [ ] Stranger nick
     * [ ] Stranger avatar
   * [ ] Chat metadata changes
@@ -29,9 +33,21 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [ ] Group avatar
     * [ ] Group member name
     * [ ] Group member avatar
-    * [ ] Contact nick
-    * [ ] Contact avatar
+    * [ ] Friend nick
+    * [ ] Friend avatar
     * [ ] Stranger nick
     * [ ] Stranger avatar
   * [ ] Double puppeting
+* Matrix → QQ
+  * [ ] Message content
+    * [ ] Text
+    * [ ] Files
+    * [ ] Picture
+    * [ ] Sticker
+    * [ ] Emoji
+    * [ ] Message reply
+    * [ ] Mention
+    * [ ] Redact message (within 2 mins)
+  * [ ] Room message
+  * [ ] Direct message
   * [ ] Relay userbot

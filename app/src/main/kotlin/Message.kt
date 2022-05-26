@@ -11,8 +11,18 @@ import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.utils.io.*
 import java.sql.Connection
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.serializer
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.EventId
+import net.folivo.trixnity.core.model.events.MessageEventContent
+import net.folivo.trixnity.core.model.events.RelatesTo
+import net.folivo.trixnity.core.model.events.UnknownMessageEventContent
+import net.folivo.trixnity.core.model.events.m.room.EncryptedFile
+import net.folivo.trixnity.core.model.events.m.room.ImageInfo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent as RMEC
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.message.data.Face
@@ -25,7 +35,21 @@ import net.mamoe.mirai.message.data.MessageSourceKind
 import net.mamoe.mirai.message.data.buildMessageSource
 import net.mamoe.mirai.message.data.content
 
-suspend fun MessageContent.toRoomMessageEventContent(matrixApiClient: MatrixApiClient): RMEC =
+@Serializable
+data class RawStickerMessageEventContent(
+        @SerialName("body") val body: String,
+        @SerialName("info") val info: ImageInfo? = null,
+        @SerialName("url") val url: String? = null,
+        @SerialName("file") val file: EncryptedFile? = null,
+        @SerialName("m.relates_to") val relatesTo: RelatesTo? = null,
+)
+
+fun concatNullableStrings(a: String?, b: String?): String? =
+        if (a == null) b else if (b == null) a else a + b
+
+suspend fun MessageContent.toMessageEventContent(
+        matrixApiClient: MatrixApiClient
+): MessageEventContent =
         when (this) {
             is Image -> {
                 val client = HttpClient(CIO) { install(UserAgent) { agent = "QQClient" } }
@@ -37,28 +61,52 @@ suspend fun MessageContent.toRoomMessageEventContent(matrixApiClient: MatrixApiC
                                 .upload(bytes, response.contentLength()!!, response.contentType()!!)
                                 .getOrThrow()
                                 .contentUri
-                RMEC.ImageMessageEventContent(this.content, url = url)
+                // HACK: m.sticker is currently not supported in Trixnity
+                if (isEmoji)
+                        UnknownMessageEventContent(
+                                raw =
+                                        Json.encodeToJsonElement(
+                                                RawStickerMessageEventContent.serializer(),
+                                                RawStickerMessageEventContent(
+                                                        this.content,
+                                                        url = url
+                                                )
+                                        ) as
+                                                JsonObject,
+                                eventType = "m.sticker"
+                        )
+                else RMEC.ImageMessageEventContent(this.content, url = url)
             }
             is Face -> RMEC.TextMessageEventContent(this.content)
             else -> RMEC.TextMessageEventContent(this.content)
         }
 
-suspend fun MessageChain.toRoomMessageEventContents(matrixApiClient: MatrixApiClient): List<RMEC> {
+suspend fun MessageChain.toMessageEventContents(
+        matrixApiClient: MatrixApiClient
+): List<MessageEventContent> {
     val contents = this.filterIsInstance<MessageContent>()
-    val result = mutableListOf<RMEC>()
-    for (i in contents.indices) {
-        val rmec = contents[i].toRoomMessageEventContent(matrixApiClient)
+    val result = mutableListOf<MessageEventContent>()
+    for (content in contents) {
+        val mec = content.toMessageEventContent(matrixApiClient)
+        val last = result.lastOrNull()
         when {
-            i == 0 || contents[i - 1] is Image || contents[i] is Image -> result.add(rmec)
-            else ->
-                    result[result.size - 1] =
-                            RMEC.TextMessageEventContent(body = result.last().body + rmec.body)
+            result.size == 0 -> result.add(mec)
+            last is RMEC.TextMessageEventContent && mec is RMEC.TextMessageEventContent -> {
+                result[result.size - 1] =
+                        RMEC.TextMessageEventContent(
+                            body = last.body + mec.body,
+                            format = last.format,
+                            formattedBody = concatNullableStrings(last.formattedBody, mec.formattedBody),
+                            relatesTo = last.relatesTo
+                        )
+            }
+            else -> result.add(mec)
         }
     }
     return result
 }
 
-// suspend fun RMEC.toMessageChain(): MessageChain {}
+// suspend fun MessageEventContent.toMessageChain(): MessageChain {}
 
 object Messages {
     var connection: Connection? = null

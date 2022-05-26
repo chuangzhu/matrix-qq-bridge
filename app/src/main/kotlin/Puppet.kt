@@ -1,29 +1,16 @@
 package land.melty.matrixappserviceqq
 
 // import net.mamoe.mirai.utils.LoginSolver
-import io.ktor.client.HttpClient
-import io.ktor.client.call.receive
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.features.UserAgent
+
 import io.ktor.client.request.get
-import io.ktor.client.statement.HttpResponse
-import io.ktor.http.contentLength
-import io.ktor.http.contentType
-import io.ktor.utils.io.ByteReadChannel
 import java.sql.Connection
 import kotlinx.serialization.json.Json
 import net.folivo.trixnity.client.api.MatrixApiClient
-import net.folivo.trixnity.core.model.EventId
-import net.folivo.trixnity.core.model.RoomAliasId
 import net.folivo.trixnity.core.model.UserId
-import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
-import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.MessageSourceKind
-import net.mamoe.mirai.message.data.buildMessageSource
-import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
 import net.mamoe.mirai.utils.DeviceInfo
 
@@ -68,16 +55,13 @@ class Puppet(
             matrixApiClient.rooms.joinRoom(portal.roomId!!, asUserId = ghost.userId)
             // Send the message
             val source = message.get(MessageSource.Key)
-            if (Messages.getEventId(source!!, MessageSourceKind.GROUP) != null) return@subscribeAlways
-            message.toRoomMessageEventContents(matrixApiClient).forEach { rmec ->
+            if (Messages.getEventId(source!!, MessageSourceKind.GROUP) != null)
+                    return@subscribeAlways
+            message.toMessageEventContents(matrixApiClient).forEach { mec ->
                 val eventId =
                         matrixApiClient
                                 .rooms
-                                .sendMessageEvent(
-                                        portal.roomId!!,
-                                        rmec,
-                                        asUserId = ghost.userId
-                                )
+                                .sendMessageEvent(portal.roomId!!, mec, asUserId = ghost.userId)
                                 .getOrThrow()
                 Messages.save(source, eventId, MessageSourceKind.GROUP)
             }
