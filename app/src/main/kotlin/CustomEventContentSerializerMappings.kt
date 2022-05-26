@@ -21,7 +21,7 @@ data class StickerMessageEventContent(
 
 object CustomEventContentSerializerMappings : EventContentSerializerMappings {
     override val message: Set<EventContentSerializerMapping<out MessageEventContent>> =
-            setOf(of<StickerMessageEventContent>("m.stickers"))
+            setOf(of<StickerMessageEventContent>("m.sticker"))
     override val state: Set<EventContentSerializerMapping<out StateEventContent>> = setOf()
     override val ephemeral: Set<EventContentSerializerMapping<out EphemeralEventContent>> = setOf()
     override val toDevice: Set<EventContentSerializerMapping<out ToDeviceEventContent>> = setOf()

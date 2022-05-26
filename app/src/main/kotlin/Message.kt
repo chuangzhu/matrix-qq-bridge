@@ -131,6 +131,7 @@ fun RMEC.TextMessageEventContent.addReplyTo(
                             """<a href="https://matrix.to/#/${originalEvent.sender}">${originalEvent.sender}</a><br/>""" +
                             "This is where the related event's HTML would be." +
                             "</blockquote></mx-reply>" +
+                            // FIXME: use this.body here is vulnerable to XSS
                             (this.formattedBody ?: this.body),
             relatesTo =
                     RelatesTo.Unknown(
