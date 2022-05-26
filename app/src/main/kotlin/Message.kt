@@ -11,18 +11,9 @@ import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.utils.io.*
 import java.sql.Connection
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.serializer
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.events.MessageEventContent
-import net.folivo.trixnity.core.model.events.RelatesTo
-import net.folivo.trixnity.core.model.events.UnknownMessageEventContent
-import net.folivo.trixnity.core.model.events.m.room.EncryptedFile
-import net.folivo.trixnity.core.model.events.m.room.ImageInfo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent as RMEC
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.message.data.Face
@@ -34,15 +25,6 @@ import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.MessageSourceKind
 import net.mamoe.mirai.message.data.buildMessageSource
 import net.mamoe.mirai.message.data.content
-
-@Serializable
-data class RawStickerMessageEventContent(
-        @SerialName("body") val body: String,
-        @SerialName("info") val info: ImageInfo? = null,
-        @SerialName("url") val url: String? = null,
-        @SerialName("file") val file: EncryptedFile? = null,
-        @SerialName("m.relates_to") val relatesTo: RelatesTo? = null,
-)
 
 fun concatNullableStrings(a: String?, b: String?): String? =
         if (a == null) b else if (b == null) a else a + b
@@ -61,20 +43,7 @@ suspend fun MessageContent.toMessageEventContent(
                                 .upload(bytes, response.contentLength()!!, response.contentType()!!)
                                 .getOrThrow()
                                 .contentUri
-                // HACK: m.sticker is currently not supported in Trixnity
-                if (isEmoji)
-                        UnknownMessageEventContent(
-                                raw =
-                                        Json.encodeToJsonElement(
-                                                RawStickerMessageEventContent.serializer(),
-                                                RawStickerMessageEventContent(
-                                                        this.content,
-                                                        url = url
-                                                )
-                                        ) as
-                                                JsonObject,
-                                eventType = "m.sticker"
-                        )
+                if (isEmoji) StickerMessageEventContent(this.content, url = url)
                 else RMEC.ImageMessageEventContent(this.content, url = url)
             }
             is Face -> RMEC.TextMessageEventContent(this.content)
@@ -87,20 +56,25 @@ suspend fun MessageChain.toMessageEventContents(
     val contents = this.filterIsInstance<MessageContent>()
     val result = mutableListOf<MessageEventContent>()
     for (content in contents) {
-        val mec = content.toMessageEventContent(matrixApiClient)
-        val last = result.lastOrNull()
+        val previous = result.lastOrNull()
+        val current = content.toMessageEventContent(matrixApiClient)
         when {
-            result.size == 0 -> result.add(mec)
-            last is RMEC.TextMessageEventContent && mec is RMEC.TextMessageEventContent -> {
+            result.size == 0 -> result.add(current)
+            // Concat previous and current if both m.text
+            previous is RMEC.TextMessageEventContent && current is RMEC.TextMessageEventContent -> {
                 result[result.size - 1] =
                         RMEC.TextMessageEventContent(
-                            body = last.body + mec.body,
-                            format = last.format,
-                            formattedBody = concatNullableStrings(last.formattedBody, mec.formattedBody),
-                            relatesTo = last.relatesTo
+                                body = previous.body + current.body,
+                                format = previous.format,
+                                formattedBody =
+                                        concatNullableStrings(
+                                                previous.formattedBody,
+                                                current.formattedBody
+                                        ),
+                                relatesTo = previous.relatesTo
                         )
             }
-            else -> result.add(mec)
+            else -> result.add(current)
         }
     }
     return result

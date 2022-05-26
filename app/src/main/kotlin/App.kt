@@ -15,6 +15,7 @@ import net.folivo.trixnity.appservice.rest.MatrixAppserviceProperties
 import net.folivo.trixnity.appservice.rest.event.AppserviceEventTnxService
 import net.folivo.trixnity.appservice.rest.matrixAppserviceModule
 import net.folivo.trixnity.client.api.MatrixApiClient
+import net.folivo.trixnity.client.api.createMatrixApiClientEventContentSerializerMappings
 import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.Event.RoomEvent
 import net.folivo.trixnity.core.model.events.m.room.MemberEventContent
@@ -59,9 +60,15 @@ fun main(args: Array<String>) {
     val connection = DriverManager.getConnection("jdbc:${config.appservice.database}")
     dbInit(connection)
     val matrixApiClient =
-            MatrixApiClient(baseUrl = Url(config.homeserver.address)).apply {
-                accessToken.value = registrationConfig.asToken
-            }
+            MatrixApiClient(
+                            baseUrl = Url(config.homeserver.address),
+                            // Register custom event types in MatrixApiClient
+                            eventContentSerializerMappings =
+                                    createMatrixApiClientEventContentSerializerMappings(
+                                            CustomEventContentSerializerMappings
+                                    ),
+                    )
+                    .apply { accessToken.value = registrationConfig.asToken }
     val botUserId = UserId(config.appservice.botUsername, config.homeserver.domain)
     runBlocking {
         matrixApiClient.authentication.register(
