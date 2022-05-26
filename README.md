@@ -9,7 +9,7 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [x] Picture
     * [x] Sticker
     * [ ] Emoji
-    * [ ] Message reply
+    * [x] Message reply
     * [ ] Mention
     * [ ] Nudge
     * [ ] Withdraw message

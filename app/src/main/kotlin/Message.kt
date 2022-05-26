@@ -11,9 +11,15 @@ import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.utils.io.*
 import java.sql.Connection
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.EventId
+import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.events.Event
 import net.folivo.trixnity.core.model.events.MessageEventContent
+import net.folivo.trixnity.core.model.events.RelatesTo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent as RMEC
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.message.data.Face
@@ -23,6 +29,7 @@ import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.MessageContent
 import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.MessageSourceKind
+import net.mamoe.mirai.message.data.QuoteReply
 import net.mamoe.mirai.message.data.buildMessageSource
 import net.mamoe.mirai.message.data.content
 
@@ -43,15 +50,18 @@ suspend fun MessageContent.toMessageEventContent(
                                 .upload(bytes, response.contentLength()!!, response.contentType()!!)
                                 .getOrThrow()
                                 .contentUri
-                if (isEmoji) StickerMessageEventContent(this.content, url = url)
+                if (this.isEmoji) StickerMessageEventContent(this.content, url = url)
                 else RMEC.ImageMessageEventContent(this.content, url = url)
             }
             is Face -> RMEC.TextMessageEventContent(this.content)
             else -> RMEC.TextMessageEventContent(this.content)
         }
 
+/** Should only be called in bot.eventChannel.subscribeAlways<MessageEvent> */
 suspend fun MessageChain.toMessageEventContents(
-        matrixApiClient: MatrixApiClient
+        matrixApiClient: MatrixApiClient,
+        messageSourceKind: MessageSourceKind,
+        roomId: RoomId
 ): List<MessageEventContent> {
     val contents = this.filterIsInstance<MessageContent>()
     val result = mutableListOf<MessageEventContent>()
@@ -77,7 +87,71 @@ suspend fun MessageChain.toMessageEventContents(
             else -> result.add(current)
         }
     }
+    // Add rich reply
+    val quoteReply = this.filterIsInstance<QuoteReply>().firstOrNull()
+    if (quoteReply != null) {
+        val eventId = Messages.getEventId(quoteReply.source, messageSourceKind)
+        if (eventId != null) {
+            // Should be safe to cast because eventIds in db are from messages
+            @Suppress("UNCHECKED_CAST")
+            @OptIn(ExperimentalSerializationApi::class)
+            val originalEvent =
+                    matrixApiClient.rooms.getEvent(roomId, eventId).getOrThrow() as
+                            Event.MessageEvent<MessageEventContent>
+            for ((i, mec) in result.withIndex()) {
+                if (mec is RMEC.TextMessageEventContent) result[i] = mec.addReplyTo(originalEvent)
+            }
+        }
+    }
     return result
+}
+
+/** @see https://spec.matrix.org/v1.2/client-server-api/#rich-replies */
+fun RMEC.TextMessageEventContent.addReplyTo(
+        originalEvent: Event.MessageEvent<MessageEventContent>
+): RMEC.TextMessageEventContent {
+    val content = originalEvent.content
+    val fallback: String =
+            when (content) {
+                is RMEC.TextMessageEventContent ->
+                        content.body
+                                .split("\n")
+                                .filter { !it.startsWith("> ") }
+                                .joinToString("\n> ")
+                is RMEC.ImageMessageEventContent -> content.body
+                is StickerMessageEventContent -> content.body
+                else -> return this
+            }
+    return RMEC.TextMessageEventContent(
+            body = "> <${originalEvent.sender}> ${fallback}\n\n" + this.body,
+            format = "org.matrix.custom.html",
+            formattedBody =
+                    "<mx-reply><blockquote>" +
+                            """<a href="https://matrix.to/#/${originalEvent.roomId}/${originalEvent.id.full}">In reply to</a>""" +
+                            """<a href="https://matrix.to/#/${originalEvent.sender}">${originalEvent.sender}</a><br/>""" +
+                            "This is where the related event's HTML would be." +
+                            "</blockquote></mx-reply>" +
+                            (this.formattedBody ?: this.body),
+            relatesTo =
+                    RelatesTo.Unknown(
+                            raw =
+                                    JsonObject(
+                                            mapOf(
+                                                    "m.in_reply_to" to
+                                                            JsonObject(
+                                                                    mapOf(
+                                                                            "event_id" to
+                                                                                    JsonPrimitive(
+                                                                                            originalEvent
+                                                                                                    .id
+                                                                                                    .full
+                                                                                    )
+                                                                    )
+                                                            )
+                                            )
+                                    )
+                    )
+    )
 }
 
 // suspend fun MessageEventContent.toMessageChain(): MessageChain {}
@@ -128,7 +202,7 @@ object Messages {
 
     fun getMessageSource(eventId: EventId, bot: Bot): MessageSource? {
         val statement = connection!!.prepareStatement("SELECT * FROM messages WHERE event_id = ?")
-        statement.setString(1, eventId.toString())
+        statement.setString(1, eventId.full)
         val rs = statement.executeQuery()
         if (rs.next() == false) return null
         return bot.buildMessageSource(MessageSourceKind.valueOf(rs.getString("kind"))) {

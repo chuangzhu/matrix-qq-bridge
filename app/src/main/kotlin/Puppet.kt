@@ -57,7 +57,7 @@ class Puppet(
             val source = message.get(MessageSource.Key)
             if (Messages.getEventId(source!!, MessageSourceKind.GROUP) != null)
                     return@subscribeAlways
-            message.toMessageEventContents(matrixApiClient).forEach { mec ->
+            message.toMessageEventContents(matrixApiClient, MessageSourceKind.GROUP, portal.roomId!!).forEach { mec ->
                 val eventId =
                         matrixApiClient
                                 .rooms
