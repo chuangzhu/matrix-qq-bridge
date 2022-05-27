@@ -61,7 +61,11 @@ suspend fun MessageContent.toMessageEventContent(
                     val link = Element("a")
                     link.attr("href", "https://matrix.to/#/${ghost.userId}")
                     link.appendText(ghost.nick)
-                    RMEC.TextMessageEventContent(body = ghost.nick, formattedBody = link.toString())
+                    RMEC.TextMessageEventContent(
+                            body = ghost.nick,
+                            format = "org.matrix.custom.html",
+                            formattedBody = link.toString()
+                    )
                 }
             }
             is Face -> RMEC.TextMessageEventContent(this.content)
@@ -86,14 +90,15 @@ suspend fun MessageChain.toMessageEventContents(
         ) {
             // Null if both are plain text, concat if either has formatted_body
             val formattedBody =
-                    (previous.formattedBody ?: current.formattedBody)
-                            ?: (previous.formattedBody
+                    if (previous.formattedBody == null && current.formattedBody == null) null
+                    else
+                            (previous.formattedBody
                                     ?: TextNode(previous.body).toString()) +
                                     (current.formattedBody ?: TextNode(current.body).toString())
             result[result.size - 1] =
                     RMEC.TextMessageEventContent(
                             body = previous.body + current.body,
-                            format = previous.format ?: current.body,
+                            format = previous.format ?: current.format,
                             formattedBody = formattedBody,
                             relatesTo = previous.relatesTo
                     )
@@ -110,8 +115,8 @@ suspend fun MessageChain.toMessageEventContents(
             val originalEvent =
                     matrixApiClient.rooms.getEvent(roomId, eventId).getOrThrow() as
                             Event.MessageEvent<MessageEventContent>
-            for ((i, mec) in result.withIndex()) {
-                if (mec is RMEC.TextMessageEventContent) result[i] = mec.addReplyTo(originalEvent)
+            result.map {
+                if (it is RMEC.TextMessageEventContent) it.addReplyTo(originalEvent) else it
             }
         }
     }
