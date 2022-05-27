@@ -164,7 +164,7 @@ fun RMEC.TextMessageEventContent.addReplyTo(
                     parsed.select("mx-reply").remove()
                     val body = Cleaner(CustomSafelists.matrix()).clean(parsed).body()
                     blockquote.appendChildren(body.children())
-                } else TextNode(content.body)
+                } else blockquote.appendChild(TextNode(content.body))
         is RMEC.ImageMessageEventContent -> blockquote.appendChild(TextNode(content.body))
         is StickerMessageEventContent -> blockquote.appendChild(TextNode(content.body))
         else -> return this

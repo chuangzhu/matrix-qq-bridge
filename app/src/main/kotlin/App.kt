@@ -96,7 +96,11 @@ fun main(args: Array<String>) {
             matrixApiClient.rooms.joinRoom(roomId = it.roomId)
             matrixApiClient.rooms.sendMessageEvent(
                     it.roomId,
-                    TextMessageEventContent("Hello, I'm a QQ bridge bot.\nUse `!help` for help.")
+                    TextMessageEventContent(
+                        body = "Hello, I'm a QQ bridge bot.\nUse `!help` for help.",
+                        format = "org.matrix.custom.html",
+                        formattedBody = "Hello, I'm a QQ bridge bot.<br>Use <code>!help</code> for help."
+                    )
             )
         }
     }

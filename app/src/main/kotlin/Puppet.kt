@@ -9,6 +9,7 @@ import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.UserId
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.event.events.OtherClientMessageEvent
 import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.MessageSourceKind
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
@@ -53,7 +54,7 @@ class Puppet(
             matrixApiClient.rooms.inviteUser(portal.roomId!!, mxid)
             matrixApiClient.rooms.inviteUser(portal.roomId!!, ghost.userId)
             matrixApiClient.rooms.joinRoom(portal.roomId!!, asUserId = ghost.userId)
-            // Send the message
+            // Prevent message being sent multiple times with multiple puppets logged in
             val source = message.get(MessageSource.Key)
             if (Messages.getEventId(source!!, MessageSourceKind.GROUP) != null)
                     return@subscribeAlways
@@ -77,6 +78,7 @@ class Puppet(
                         Messages.save(source, eventId, MessageSourceKind.GROUP)
                     }
         }
+        bot.eventChannel.subscribeAlways<OtherClientMessageEvent> {}
     }
 
     // Create

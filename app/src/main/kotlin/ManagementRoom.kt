@@ -8,12 +8,9 @@ import net.folivo.trixnity.core.model.events.Event
 import net.folivo.trixnity.core.model.events.Event.RoomEvent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
 import net.mamoe.mirai.network.LoginFailedException
+import org.jsoup.nodes.TextNode
 
-class ManagementRoom(
-        val roomId: RoomId,
-        var userId: UserId,
-        var state: Command = Command.DEFAULT
-) {
+class ManagementRoom(val roomId: RoomId, var userId: UserId, var state: Command = Command.DEFAULT) {
 
     enum class Command(val value: Int) {
         DEFAULT(0),
@@ -106,7 +103,21 @@ class ManagementRoom(
                     room.state = Command.DEFAULT
                     room.update()
                 } else if (room.state == Command.DEFAULT) {
-                    if (event.content.body == "!login") {
+                    if (event.content.body == "!help") {
+                        matrixApiClient.rooms.sendMessageEvent(
+                                event.roomId,
+                                TextMessageEventContent(
+                                        "!login - Get instruction to login to QQ.\n" +
+                                                "!listclient - List other clients of current QQ account.\n" +
+                                                "!cancel - Cancel an ongoing action",
+                                        format = "org.matrix.custom.html",
+                                        formattedBody =
+                                                "<ul><li><code>!login</code> - Get instruction to login to QQ.</li>" +
+                                                        "<li><code>!listclient</code> - List other clients of current QQ account.</li>" +
+                                                        "<li><code>!cancel</code> - Cancel an ongoing action</li></ul>"
+                                )
+                        )
+                    } else if (event.content.body == "!login") {
                         val puppet = Puppet.getPuppet(room.userId)
                         if (puppet != null) {
                             matrixApiClient.rooms.sendMessageEvent(
@@ -125,6 +136,38 @@ class ManagementRoom(
                             room.state = Command.LOGIN
                             room.update()
                         }
+                    } else if (event.content.body == "!listclients") {
+                        val puppet = Puppet.getPuppet(room.userId)
+                        if (puppet != null) {
+                            matrixApiClient.rooms.sendMessageEvent(
+                                    event.roomId,
+                                    TextMessageEventContent(
+                                            "### Other clients" +
+                                                    puppet.bot
+                                                            .otherClients
+                                                            .map {
+                                                                "\n* ${it.info.deviceName}" +
+                                                                        "\n  Platform: ${it.info.platform}" +
+                                                                        "\n  Kind: ${it.info.deviceKind}"
+                                                            }
+                                                            .joinToString(""),
+                                            format = "org.matrix.custom.html",
+                                            formattedBody =
+                                                    "<h3>Other clients</h3><ul>${
+                                                        puppet.bot.otherClients.map {
+                                                            "<li>${TextNode(it.info.deviceName)}<br>" +
+                                                            "Platform: ${TextNode(it.info.platform.toString())}<br>" +
+                                                            "Kind: ${TextNode(it.info.deviceKind)}</li>"
+                                                        }.joinToString("")
+                                                    }</ul>"
+                                    )
+                            )
+                        } else {
+                            matrixApiClient.rooms.sendMessageEvent(
+                                    event.roomId,
+                                    TextMessageEventContent("You've not logged in.")
+                            )
+                        }
                     }
                 } else if (room.state == Command.LOGIN) {
                     val list = event.content.body.trim().split("\n")
@@ -141,7 +184,12 @@ class ManagementRoom(
                             } catch (e: NumberFormatException) {
                                 matrixApiClient.rooms.sendMessageEvent(
                                         event.roomId,
-                                        TextMessageEventContent("Invalid QQ number `${list[0]}`.")
+                                        TextMessageEventContent(
+                                                "Invalid QQ number `${list[0]}`.",
+                                                format = "org.matrix.custom.html",
+                                                formattedBody =
+                                                        "Invalid QQ number <code>${TextNode(list[0])}</code>."
+                                        )
                                 )
                                 return
                             }

@@ -17,11 +17,11 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
   * [x] Group message
   * [ ] Friend message
   * [ ] Stranger message
-  * [ ] "My computer" message
+  * [ ] OtherClient message
   * [ ] Presence
   * [ ] Group permissions
   * [ ] Membership actions (invite/kick/join/leave)
-  * [ ] Initial chat metadata
+  * [x] Initial chat metadata
     * [x] Group name
     * [x] Group avatar
     * [x] User name
