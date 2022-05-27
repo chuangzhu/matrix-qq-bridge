@@ -33,8 +33,10 @@ import net.mamoe.mirai.message.data.MessageSourceKind
 import net.mamoe.mirai.message.data.QuoteReply
 import net.mamoe.mirai.message.data.buildMessageSource
 import net.mamoe.mirai.message.data.content
+import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
+import org.jsoup.safety.Cleaner
 
 suspend fun MessageContent.toMessageEventContent(
         matrixApiClient: MatrixApiClient,
@@ -139,17 +141,40 @@ fun RMEC.TextMessageEventContent.addReplyTo(
                 is StickerMessageEventContent -> content.body
                 else -> return this
             }
+    // Build the new formatted body
+    val mxReply = Element("mx-reply")
+    val blockquote = Element("blockquote")
+    val eventLink = Element("a")
+    val senderLink = Element("a")
+    eventLink.attr("href", "https://matrix.to/#/${originalEvent.roomId}/${originalEvent.id.full}")
+    eventLink.appendText("In reply to")
+    blockquote.appendChild(eventLink)
+    senderLink.attr("href", "https://matrix.to/#/${originalEvent.sender}")
+    senderLink.appendText(originalEvent.sender.toString())
+    blockquote.appendChild(eventLink)
+    blockquote.appendChild(senderLink)
+    blockquote.appendChild(Element("br"))
+    // Clean the original formatted body
+    when (content) {
+        is RMEC.TextMessageEventContent ->
+                if (content.formattedBody != null) {
+                    val parsed = Jsoup.parseBodyFragment(content.formattedBody!!)
+                    // Jsoup cleaner does not remove the inner HTML of mx-reply
+                    // Manually remove here
+                    parsed.select("mx-reply").remove()
+                    val body = Cleaner(CustomSafelists.matrix()).clean(parsed).body()
+                    blockquote.appendChildren(body.children())
+                } else TextNode(content.body)
+        is RMEC.ImageMessageEventContent -> blockquote.appendChild(TextNode(content.body))
+        is StickerMessageEventContent -> blockquote.appendChild(TextNode(content.body))
+        else -> return this
+    }
+    mxReply.appendChild(blockquote)
     return RMEC.TextMessageEventContent(
             body = "> <${originalEvent.sender}> ${fallback}\n\n" + this.body,
             format = "org.matrix.custom.html",
             formattedBody =
-                    "<mx-reply><blockquote>" +
-                            """<a href="https://matrix.to/#/${originalEvent.roomId}/${originalEvent.id.full}">In reply to</a>""" +
-                            """<a href="https://matrix.to/#/${originalEvent.sender}">${originalEvent.sender}</a><br/>""" +
-                            "This is where the related event's HTML would be." +
-                            "</blockquote></mx-reply>" +
-                            // FIXME: use this.body here is vulnerable to XSS
-                            (this.formattedBody ?: this.body),
+                    mxReply.toString() + (this.formattedBody ?: TextNode(this.body).toString()),
             relatesTo =
                     RelatesTo.Unknown(
                             raw =
