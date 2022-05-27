@@ -36,8 +36,10 @@ dependencies {
     implementation("io.ktor:ktor-server-netty:1.6.7")
     implementation("io.ktor:ktor-client-core:1.6.7")
     implementation("io.ktor:ktor-client-cio:1.6.7")
+
     implementation("com.charleskorn.kaml:kaml:0.43.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.2")
+    implementation("org.jsoup:jsoup:1.15.1")
 
     implementation("org.xerial:sqlite-jdbc:3.30.1")
     implementation("org.postgresql:postgresql:42.2.2")

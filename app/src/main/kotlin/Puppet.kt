@@ -57,14 +57,25 @@ class Puppet(
             val source = message.get(MessageSource.Key)
             if (Messages.getEventId(source!!, MessageSourceKind.GROUP) != null)
                     return@subscribeAlways
-            message.toMessageEventContents(matrixApiClient, MessageSourceKind.GROUP, portal.roomId!!).forEach { mec ->
-                val eventId =
-                        matrixApiClient
-                                .rooms
-                                .sendMessageEvent(portal.roomId!!, mec, asUserId = ghost.userId)
-                                .getOrThrow()
-                Messages.save(source, eventId, MessageSourceKind.GROUP)
-            }
+            // QQ message -> Matrix messages
+            message.toMessageEventContents(
+                            matrixApiClient,
+                            MessageSourceKind.GROUP,
+                            portal.roomId!!,
+                            config
+                    )
+                    .forEach { mec ->
+                        val eventId =
+                                matrixApiClient
+                                        .rooms
+                                        .sendMessageEvent(
+                                                portal.roomId!!,
+                                                mec,
+                                                asUserId = ghost.userId
+                                        )
+                                        .getOrThrow()
+                        Messages.save(source, eventId, MessageSourceKind.GROUP)
+                    }
         }
     }
 

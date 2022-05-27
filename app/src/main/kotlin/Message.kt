@@ -22,6 +22,7 @@ import net.folivo.trixnity.core.model.events.MessageEventContent
 import net.folivo.trixnity.core.model.events.RelatesTo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent as RMEC
 import net.mamoe.mirai.Bot
+import net.mamoe.mirai.message.data.At
 import net.mamoe.mirai.message.data.Face
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
@@ -32,12 +33,12 @@ import net.mamoe.mirai.message.data.MessageSourceKind
 import net.mamoe.mirai.message.data.QuoteReply
 import net.mamoe.mirai.message.data.buildMessageSource
 import net.mamoe.mirai.message.data.content
-
-fun concatNullableStrings(a: String?, b: String?): String? =
-        if (a == null) b else if (b == null) a else a + b
+import org.jsoup.nodes.Element
+import org.jsoup.nodes.TextNode
 
 suspend fun MessageContent.toMessageEventContent(
-        matrixApiClient: MatrixApiClient
+        matrixApiClient: MatrixApiClient,
+        config: Config
 ): MessageEventContent =
         when (this) {
             is Image -> {
@@ -53,6 +54,16 @@ suspend fun MessageContent.toMessageEventContent(
                 if (this.isEmoji) StickerMessageEventContent(this.content, url = url)
                 else RMEC.ImageMessageEventContent(this.content, url = url)
             }
+            is At -> {
+                val ghost = Ghost.get(this.target, matrixApiClient, config)
+                if (ghost == null) RMEC.TextMessageEventContent(this.content)
+                else {
+                    val link = Element("a")
+                    link.attr("href", "https://matrix.to/#/${ghost.userId}")
+                    link.appendText(ghost.nick)
+                    RMEC.TextMessageEventContent(body = ghost.nick, formattedBody = link.toString())
+                }
+            }
             is Face -> RMEC.TextMessageEventContent(this.content)
             else -> RMEC.TextMessageEventContent(this.content)
         }
@@ -61,31 +72,32 @@ suspend fun MessageContent.toMessageEventContent(
 suspend fun MessageChain.toMessageEventContents(
         matrixApiClient: MatrixApiClient,
         messageSourceKind: MessageSourceKind,
-        roomId: RoomId
+        roomId: RoomId,
+        config: Config
 ): List<MessageEventContent> {
     val contents = this.filterIsInstance<MessageContent>()
     val result = mutableListOf<MessageEventContent>()
     for (content in contents) {
         val previous = result.lastOrNull()
-        val current = content.toMessageEventContent(matrixApiClient)
-        when {
-            result.size == 0 -> result.add(current)
-            // Concat previous and current if both m.text
-            previous is RMEC.TextMessageEventContent && current is RMEC.TextMessageEventContent -> {
-                result[result.size - 1] =
-                        RMEC.TextMessageEventContent(
-                                body = previous.body + current.body,
-                                format = previous.format,
-                                formattedBody =
-                                        concatNullableStrings(
-                                                previous.formattedBody,
-                                                current.formattedBody
-                                        ),
-                                relatesTo = previous.relatesTo
-                        )
-            }
-            else -> result.add(current)
-        }
+        val current = content.toMessageEventContent(matrixApiClient, config)
+        if (result.size == 0) result.add(current)
+        // Concat previous and current if both m.text
+        else if (previous is RMEC.TextMessageEventContent && current is RMEC.TextMessageEventContent
+        ) {
+            // Null if both are plain text, concat if either has formatted_body
+            val formattedBody =
+                    (previous.formattedBody ?: current.formattedBody)
+                            ?: (previous.formattedBody
+                                    ?: TextNode(previous.body).toString()) +
+                                    (current.formattedBody ?: TextNode(current.body).toString())
+            result[result.size - 1] =
+                    RMEC.TextMessageEventContent(
+                            body = previous.body + current.body,
+                            format = previous.format ?: current.body,
+                            formattedBody = formattedBody,
+                            relatesTo = previous.relatesTo
+                    )
+        } else result.add(current)
     }
     // Add rich reply
     val quoteReply = this.filterIsInstance<QuoteReply>().firstOrNull()
