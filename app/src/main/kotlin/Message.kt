@@ -117,8 +117,8 @@ suspend fun MessageChain.toMessageEventContents(
             val originalEvent =
                     matrixApiClient.rooms.getEvent(roomId, eventId).getOrThrow() as
                             Event.MessageEvent<MessageEventContent>
-            result.map {
-                if (it is RMEC.TextMessageEventContent) it.addReplyTo(originalEvent) else it
+            for ((i, mec) in result.withIndex()) {
+                if (mec is RMEC.TextMessageEventContent) result[i] = mec.addReplyTo(originalEvent)
             }
         }
     }
