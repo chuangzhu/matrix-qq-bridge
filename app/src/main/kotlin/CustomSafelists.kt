@@ -15,6 +15,8 @@ object CustomSafelists {
             .addAttributes("span", "data-mx-bg-color", "data-mx-color", "data-mx-spoiler")
             .addAttributes("a", "name", "target", "href")
             .addAttributes("img", "width", "height", "alt", "title", "src")
+            // MSC2545: Image Packs (Emoticons & Stickers)
+            .addAttributes("img", "data-mx-emoticon")
             .addAttributes("ol", "start")
             .addAttributes("code", "class")
             .addProtocols("a", "href", "https", "http", "ftp", "mailto", "magnet")

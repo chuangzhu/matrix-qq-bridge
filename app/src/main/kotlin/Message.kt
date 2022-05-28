@@ -70,7 +70,18 @@ suspend fun MessageContent.toMessageEventContent(
                     )
                 }
             }
-            is Face -> RMEC.TextMessageEventContent(this.content)
+            is Face -> {
+                val shortcode = FaceInfos.shortcodes.getOrElse(id) { ":qq_emoji_$id:" }
+                val url = FaceInfos.urls.getOrElse(id) { null }
+                if (url != null)
+                        RMEC.TextMessageEventContent(
+                                shortcode,
+                                format = "org.matrix.custom.html",
+                                formattedBody =
+                                        """<img data-mx-emoticon src="$url" alt="$shortcode" title="$shortcode" height="32" />"""
+                        )
+                else RMEC.TextMessageEventContent(shortcode)
+            }
             else -> RMEC.TextMessageEventContent(this.content)
         }
 
