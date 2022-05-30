@@ -77,7 +77,7 @@ class Ghost(
                     .executeUpdate(
                             """
                                 CREATE TABLE IF NOT EXISTS ghosts (
-                                    qqid INTEGET PRIMARY KEY NOT NULL,
+                                    qqid INTEGER PRIMARY KEY NOT NULL,
                                     nick TEXT NOT NULL,
                                     avatar_url TEXT
                                 )

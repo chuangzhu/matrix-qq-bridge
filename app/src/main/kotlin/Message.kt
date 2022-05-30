@@ -71,7 +71,7 @@ suspend fun MessageContent.toMessageEventContent(
                 }
             }
             is Face -> {
-                val shortcode = FaceInfos.shortcodes.getOrElse(id) { ":qq_emoji_$id:" }
+                val shortcode = ":${FaceInfos.shortcodes.getOrElse(id) { "qq_emoji_$id" }}:"
                 val url = FaceInfos.urls.getOrElse(id) { null }
                 if (url != null)
                         RMEC.TextMessageEventContent(
