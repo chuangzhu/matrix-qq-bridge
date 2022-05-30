@@ -38,7 +38,7 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
   * [ ] Double puppeting
 * Matrix → QQ
   * [ ] Message content
-    * [ ] Text
+    * [x] Text
     * [ ] Files
     * [ ] Picture
     * [ ] Sticker
@@ -46,6 +46,6 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [ ] Message reply
     * [ ] Mention
     * [ ] Redact message (within 2 mins)
-  * [ ] Room message
+  * [x] Room message
   * [ ] Direct message
   * [ ] Relay userbot

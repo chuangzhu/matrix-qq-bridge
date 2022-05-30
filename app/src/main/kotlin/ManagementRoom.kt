@@ -78,11 +78,10 @@ class ManagementRoom(val roomId: RoomId, var userId: UserId, var state: Command 
         }
 
         suspend fun handleTextMessage(
-                event: Event<TextMessageEventContent>,
+                event: RoomEvent<TextMessageEventContent>,
                 matrixApiClient: MatrixApiClient,
                 config: Config
         ) {
-            event as RoomEvent<TextMessageEventContent>
             val room = getManagementRoom(event.roomId)
             val botUserId = UserId(config.appservice.botUsername, config.homeserver.domain)
             if (room != null && event.sender != botUserId) {

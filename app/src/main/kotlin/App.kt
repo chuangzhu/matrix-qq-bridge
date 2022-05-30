@@ -83,7 +83,10 @@ fun main(args: Array<String>) {
     val roomService = RoomService(matrixApiClient, config)
     val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
     appserviceService.subscribe<TextMessageEventContent> {
-        ManagementRoom.handleTextMessage(it, matrixApiClient, config)
+        if (it is RoomEvent<TextMessageEventContent>) {
+            ManagementRoom.handleTextMessage(it, matrixApiClient, config)
+            Portal.handleMatrixTextMessage(it, matrixApiClient, config)
+        }
     }
     appserviceService.subscribe<MemberEventContent> {
         it as RoomEvent<MemberEventContent>

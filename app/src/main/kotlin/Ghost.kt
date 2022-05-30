@@ -117,9 +117,7 @@ class Ghost(
             return null
         }
         suspend fun get(userId: UserId, matrixApiClient: MatrixApiClient, config: Config): Ghost? {
-            val qqid =
-                    userId.localpart.removePrefix(config.appservice.usernamePrefix).toLongOrNull()
-                            ?: return null
+            val qqid = config.getGhostQqIdOrNull(userId) ?: return null
             return Ghost.get(qqid, matrixApiClient, config)
         }
     }

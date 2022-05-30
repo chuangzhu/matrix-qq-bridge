@@ -3,8 +3,8 @@ package land.melty.matrixappserviceqq
 import java.util.UUID
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.RoomAliasId
+import net.folivo.trixnity.core.model.UserId
 
 @Serializable
 data class Config(val homeserver: Homeserver, val appservice: Appservice, val bridge: Bridge) {
@@ -39,9 +39,21 @@ data class Config(val homeserver: Homeserver, val appservice: Appservice, val br
         val username = "${appservice.usernamePrefix}${qqid}"
         return UserId(username, homeserver.domain)
     }
+    fun getGhostQqId(mxid: UserId): Long {
+        return mxid.localpart.removePrefix(appservice.usernamePrefix).toLong()
+    }
+    fun getGhostQqIdOrNull(mxid: UserId): Long? {
+        return mxid.localpart.removePrefix(appservice.usernamePrefix).toLongOrNull()
+    }
     fun getPortalAliasId(qqid: Long): RoomAliasId {
         val alias = "${appservice.aliasPrefix}${qqid}"
         return RoomAliasId(alias, homeserver.domain)
+    }
+    fun getPortalQqId(mxid: RoomAliasId): Long {
+        return mxid.localpart.removePrefix(appservice.aliasPrefix).toLong()
+    }
+    fun getPortalQqIdOrNull(mxid: RoomAliasId): Long? {
+        return mxid.localpart.removePrefix(appservice.aliasPrefix).toLongOrNull()
     }
 }
 

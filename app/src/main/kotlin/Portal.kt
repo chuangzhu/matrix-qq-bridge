@@ -15,10 +15,12 @@ import net.folivo.trixnity.appservice.rest.room.CreateRoomParameter
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.RoomAliasId
 import net.folivo.trixnity.core.model.RoomId
-import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.Event.RoomEvent
 import net.folivo.trixnity.core.model.events.m.room.AvatarEventContent
+import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Group
+import net.mamoe.mirai.message.data.MessageSourceKind
 
 class Portal(
         val qqid: Long,
@@ -108,7 +110,15 @@ class Portal(
                             config
                     )
             // Create
-            val portal = Portal(group.id, roomId = null, group.name, avatarUrl = null, matrixApiClient, config)
+            val portal =
+                    Portal(
+                            group.id,
+                            roomId = null,
+                            group.name,
+                            avatarUrl = null,
+                            matrixApiClient,
+                            config
+                    )
             portal.create()
             portal.setAvatar(group)
             portal.insert()
@@ -133,6 +143,41 @@ class Portal(
                             .toLongOrNull()
                             ?: return null
             return Portal.get(qqid, matrixApiClient, config)
+        }
+        suspend fun get(roomId: RoomId, matrixApiClient: MatrixApiClient, config: Config): Portal? {
+            // Read
+            val statement = connection!!.prepareStatement("SELECT * FROM portal WHERE room_id = ?")
+            statement.setString(1, roomId.toString())
+            val rs = statement.executeQuery()
+            if (rs.next())
+                    return Portal(
+                            qqid = rs.getLong("qqid"),
+                            roomId = roomId,
+                            name = rs.getString("name"),
+                            avatarUrl = rs.getString("avatar_url"),
+                            matrixApiClient,
+                            config
+                    )
+            return null
+        }
+
+        // Matrix -> QQ
+        suspend fun handleMatrixTextMessage(
+                event: RoomEvent<TextMessageEventContent>,
+                matrixApiClient: MatrixApiClient,
+                config: Config
+        ) {
+            // Ignore if not a portal
+            val portal = Portal.get(event.roomId, matrixApiClient, config) ?: return
+            // Ignore ghosts' messages
+            if (config.getGhostQqIdOrNull(event.sender) != null) return
+            val puppet = Puppet.getPuppet(event.sender) ?: return
+            // Ignore messages already sent to QQ
+            if (Messages.getMessageSource(event.id, puppet.bot) != null) return
+            // A user in the room with puppet may not be in the QQ group, ignore
+            val group = puppet.bot.getGroup(portal.qqid) ?: return
+            val receipt = group.sendMessage(event.content.body)
+            Messages.save(receipt.source, event.id, MessageSourceKind.GROUP)
         }
     }
 }
