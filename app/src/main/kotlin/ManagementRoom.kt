@@ -4,8 +4,7 @@ import java.sql.Connection
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.UserId
-import net.folivo.trixnity.core.model.events.Event
-import net.folivo.trixnity.core.model.events.Event.RoomEvent
+import net.folivo.trixnity.core.model.events.Event.MessageEvent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
 import net.mamoe.mirai.network.LoginFailedException
 import org.jsoup.nodes.TextNode
@@ -78,7 +77,7 @@ class ManagementRoom(val roomId: RoomId, var userId: UserId, var state: Command 
         }
 
         suspend fun handleTextMessage(
-                event: RoomEvent<TextMessageEventContent>,
+                event: MessageEvent<TextMessageEventContent>,
                 matrixApiClient: MatrixApiClient,
                 config: Config
         ) {

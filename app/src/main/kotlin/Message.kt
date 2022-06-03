@@ -10,7 +10,10 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.utils.io.*
+import io.ktor.utils.io.jvm.javaio.toInputStream
 import java.sql.Connection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -22,22 +25,29 @@ import net.folivo.trixnity.core.model.events.MessageEventContent
 import net.folivo.trixnity.core.model.events.RelatesTo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent as RMEC
 import net.mamoe.mirai.Bot
+import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.message.data.At
 import net.mamoe.mirai.message.data.Face
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
+import net.mamoe.mirai.message.data.ImageType
+import net.mamoe.mirai.message.data.Message
 import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.MessageContent
 import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.MessageSourceKind
+import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.QuoteReply
 import net.mamoe.mirai.message.data.buildMessageSource
 import net.mamoe.mirai.message.data.content
+import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 import org.jsoup.safety.Cleaner
 
+/** QQ -> Matrix */
 suspend fun MessageContent.toMessageEventContent(
         matrixApiClient: MatrixApiClient,
         config: Config
@@ -85,7 +95,11 @@ suspend fun MessageContent.toMessageEventContent(
             else -> RMEC.TextMessageEventContent(this.content)
         }
 
-/** Should only be called in bot.eventChannel.subscribeAlways<MessageEvent> */
+/**
+ * QQ -> Matrix
+ *
+ * Should only be called in bot.eventChannel.subscribeAlways<MessageEvent>
+ */
 suspend fun MessageChain.toMessageEventContents(
         matrixApiClient: MatrixApiClient,
         messageSourceKind: MessageSourceKind,
@@ -144,11 +158,8 @@ fun RMEC.TextMessageEventContent.addReplyTo(
     val fallback: String =
             when (content) {
                 is RMEC.TextMessageEventContent ->
-                        content.body
-                                .split("\n")
-                                .filter { !it.startsWith("> ") }
-                                .joinToString("\n> ")
-                is RMEC.ImageMessageEventContent -> content.body
+                        content.body.asFallbackRemoveReply().replace("\n", "\n> ")
+                is RMEC -> content.body
                 is StickerMessageEventContent -> content.body
                 else -> return this
             }
@@ -168,15 +179,10 @@ fun RMEC.TextMessageEventContent.addReplyTo(
     // Clean the original formatted body
     when (content) {
         is RMEC.TextMessageEventContent ->
-                if (content.formattedBody != null) {
-                    val parsed = Jsoup.parseBodyFragment(content.formattedBody!!)
-                    // Jsoup cleaner does not remove the inner HTML of mx-reply
-                    // Manually remove here
-                    parsed.select("mx-reply").remove()
-                    val body = Cleaner(CustomSafelists.matrix()).clean(parsed).body()
-                    blockquote.appendChildren(body.children())
-                } else blockquote.appendChild(TextNode(content.body))
-        is RMEC.ImageMessageEventContent -> blockquote.appendChild(TextNode(content.body))
+                if (content.formattedBody != null)
+                        blockquote.appendChildren(content.formattedBody!!.asFormattedBodyToNodes())
+                else blockquote.appendChild(TextNode(content.body))
+        is RMEC -> blockquote.appendChild(TextNode(content.body))
         is StickerMessageEventContent -> blockquote.appendChild(TextNode(content.body))
         else -> return this
     }
@@ -208,7 +214,76 @@ fun RMEC.TextMessageEventContent.addReplyTo(
     )
 }
 
-// suspend fun MessageEventContent.toMessageChain(): MessageChain {}
+/**
+ * > <@alice:example.org> This is the first line > This is the second line
+ *
+ * This is the reply
+ */
+fun String.asFallbackRemoveReply(): String =
+        this.split("\n").filter { !it.startsWith("> ") }.joinToString("\n").trim()
+
+/** Convert string as formatted body to Jsoup nodes, and clean it */
+fun String.asFormattedBodyToNodes(): List<Node> {
+    val parsed = Jsoup.parseBodyFragment(this)
+    // Jsoup cleaner does not remove the inner HTML of mx-reply
+    // Manually remove here
+    parsed.select("mx-reply").remove()
+    return Cleaner(CustomSafelists.matrix()).clean(parsed).body().childNodes()
+}
+
+/** Matrix -> QQ */
+// suspend fun RMEC.TextMessageEventContent.toMessageChain(): MessageChain {
+//     if (format == "org.matrix.custom.html" && formattedBody != null) {
+//         return formattedBody!!.asFormattedBodyToNodes().map {
+//             when (it) {
+//                 is TextNode -> PlainText(it.text())
+//                 else -> PlainText(it.text())
+//             }
+//         }.toMessageChain()
+//     }
+//     return buildMessageChain { +PlainText(body.asFallbackRemoveReply()) }
+// }
+
+/** Matrix -> QQ */
+suspend fun MessageEventContent.toMessage(
+        matrixApiClient: MatrixApiClient,
+        contact: Contact,
+        config: Config
+): Message? {
+    return when (this) {
+        is RMEC.ImageMessageEventContent, is StickerMessageEventContent -> {
+            val response =
+                    matrixApiClient
+                            .media
+                            .download(
+                                    // Kotlin "smart" cast
+                                    when (this) {
+                                        is RMEC.ImageMessageEventContent -> this.url
+                                        is StickerMessageEventContent -> this.url
+                                        else -> null
+                                    }!!
+                            )
+                            .getOrThrow()
+            // TODO: convert WEBP to PNG
+            ImageType.matchOrNull(response.contentType!!.contentSubtype) ?: return null
+            val image =
+                    withContext(Dispatchers.IO) {
+                        response.content
+                                .toInputStream()
+                                .uploadAsImage(
+                                        contact,
+                                        formatName = response.contentType!!.contentSubtype
+                                )
+                    }
+            if (this is StickerMessageEventContent)
+                    Image.Builder.newBuilder(image.imageId).also { it.isEmoji = true }.build()
+            else image
+        }
+        is RMEC.TextMessageEventContent -> PlainText(this.body)
+        is RMEC -> PlainText(this.body)
+        else -> null
+    }
+}
 
 object Messages {
     var connection: Connection? = null

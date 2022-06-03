@@ -17,9 +17,11 @@ import net.folivo.trixnity.appservice.rest.matrixAppserviceModule
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.client.api.createMatrixApiClientEventContentSerializerMappings
 import net.folivo.trixnity.core.model.UserId
-import net.folivo.trixnity.core.model.events.Event.RoomEvent
+import net.folivo.trixnity.core.model.events.Event.MessageEvent
+import net.folivo.trixnity.core.model.events.Event.StateEvent
 import net.folivo.trixnity.core.model.events.m.room.MemberEventContent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
+import net.folivo.trixnity.core.model.events.MessageEventContent
 
 class EventTnxService : AppserviceEventTnxService {
     override suspend fun eventTnxProcessingState(
@@ -83,13 +85,15 @@ fun main(args: Array<String>) {
     val roomService = RoomService(matrixApiClient, config)
     val appserviceService = DefaultAppserviceService(eventTnxService, userService, roomService)
     appserviceService.subscribe<TextMessageEventContent> {
-        if (it is RoomEvent<TextMessageEventContent>) {
-            ManagementRoom.handleTextMessage(it, matrixApiClient, config)
-            Portal.handleMatrixTextMessage(it, matrixApiClient, config)
-        }
+        it as MessageEvent<TextMessageEventContent>
+        ManagementRoom.handleTextMessage(it, matrixApiClient, config)
+    }
+    appserviceService.subscribe<MessageEventContent> {
+        it as MessageEvent<MessageEventContent>
+        Portal.handleMatrixMessage(it, matrixApiClient, config)
     }
     appserviceService.subscribe<MemberEventContent> {
-        it as RoomEvent<MemberEventContent>
+        it as StateEvent<MemberEventContent>
         if (it.content.membership == MemberEventContent.Membership.INVITE &&
                         it.content.isDirect == true &&
                         it.sender != botUserId
@@ -100,9 +104,10 @@ fun main(args: Array<String>) {
             matrixApiClient.rooms.sendMessageEvent(
                     it.roomId,
                     TextMessageEventContent(
-                        body = "Hello, I'm a QQ bridge bot.\nUse `!help` for help.",
-                        format = "org.matrix.custom.html",
-                        formattedBody = "Hello, I'm a QQ bridge bot.<br>Use <code>!help</code> for help."
+                            body = "Hello, I'm a QQ bridge bot.\nUse `!help` for help.",
+                            format = "org.matrix.custom.html",
+                            formattedBody =
+                                    "Hello, I'm a QQ bridge bot.<br>Use <code>!help</code> for help."
                     )
             )
         }

@@ -15,9 +15,10 @@ import net.folivo.trixnity.appservice.rest.room.CreateRoomParameter
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.RoomAliasId
 import net.folivo.trixnity.core.model.RoomId
-import net.folivo.trixnity.core.model.events.Event.RoomEvent
+import net.folivo.trixnity.core.model.events.Event.MessageEvent
 import net.folivo.trixnity.core.model.events.m.room.AvatarEventContent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
+import net.folivo.trixnity.core.model.events.MessageEventContent
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.message.data.MessageSourceKind
@@ -162,8 +163,8 @@ class Portal(
         }
 
         // Matrix -> QQ
-        suspend fun handleMatrixTextMessage(
-                event: RoomEvent<TextMessageEventContent>,
+        suspend fun handleMatrixMessage(
+                event: MessageEvent<MessageEventContent>,
                 matrixApiClient: MatrixApiClient,
                 config: Config
         ) {
@@ -176,7 +177,7 @@ class Portal(
             if (Messages.getMessageSource(event.id, puppet.bot) != null) return
             // A user in the room with puppet may not be in the QQ group, ignore
             val group = puppet.bot.getGroup(portal.qqid) ?: return
-            val receipt = group.sendMessage(event.content.body)
+            val receipt = group.sendMessage(event.content.toMessage(matrixApiClient, group, config) ?: return)
             Messages.save(receipt.source, event.id, MessageSourceKind.GROUP)
         }
     }

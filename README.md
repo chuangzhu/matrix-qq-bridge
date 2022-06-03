@@ -14,6 +14,7 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [ ] Nudge
     * [ ] Withdraw message
     * [ ] Miniapp message
+    * [ ] Location
   * [x] Group message
   * [ ] Friend message
   * [ ] Stranger message
@@ -40,12 +41,13 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
   * [ ] Message content
     * [x] Text
     * [ ] Files
-    * [ ] Picture
+    * [x] Picture
     * [ ] Sticker
     * [ ] Emoji
     * [ ] Message reply
     * [ ] Mention
     * [ ] Redact message (within 2 mins)
+    * [ ] Location
   * [x] Room message
   * [ ] Direct message
   * [ ] Relay userbot

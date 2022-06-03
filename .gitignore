@@ -11,3 +11,5 @@ qq-registration.yaml
 dendrite
 
 *.db
+
+tar
