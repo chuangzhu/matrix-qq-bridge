@@ -42,7 +42,7 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [x] Text
     * [ ] Files
     * [x] Picture
-    * [ ] Sticker
+    * [x] Sticker
     * [ ] Emoji
     * [ ] Message reply
     * [ ] Mention

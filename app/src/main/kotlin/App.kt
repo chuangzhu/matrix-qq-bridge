@@ -121,7 +121,8 @@ fun main(args: Array<String>) {
             ) {
                 matrixAppserviceModule(
                         MatrixAppserviceProperties(registrationConfig.hsToken),
-                        appserviceService
+                        appserviceService,
+                        customMappings = CustomEventContentSerializerMappings
                 )
             }
     engine.start(wait = true)

@@ -249,41 +249,37 @@ suspend fun MessageEventContent.toMessage(
         matrixApiClient: MatrixApiClient,
         contact: Contact,
         config: Config
-): Message? {
-    return when (this) {
-        is RMEC.ImageMessageEventContent, is StickerMessageEventContent -> {
-            val response =
-                    matrixApiClient
-                            .media
-                            .download(
-                                    // Kotlin "smart" cast
-                                    when (this) {
-                                        is RMEC.ImageMessageEventContent -> this.url
-                                        is StickerMessageEventContent -> this.url
-                                        else -> null
-                                    }!!
-                            )
-                            .getOrThrow()
-            // TODO: convert WEBP to PNG
-            ImageType.matchOrNull(response.contentType!!.contentSubtype) ?: return null
-            val image =
-                    withContext(Dispatchers.IO) {
-                        response.content
-                                .toInputStream()
-                                .uploadAsImage(
-                                        contact,
-                                        formatName = response.contentType!!.contentSubtype
+): Message? =
+        when (this) {
+            is RMEC.ImageMessageEventContent, is StickerMessageEventContent -> {
+                val response =
+                        matrixApiClient
+                                .media
+                                .download(
+                                        // Kotlin "smart" cast
+                                        when (this) {
+                                            is RMEC.ImageMessageEventContent -> this.url
+                                            is StickerMessageEventContent -> this.url
+                                            else -> null
+                                        }!!
                                 )
-                    }
-            if (this is StickerMessageEventContent)
-                    Image.Builder.newBuilder(image.imageId).also { it.isEmoji = true }.build()
-            else image
+                                .getOrThrow()
+                // TODO: convert WEBP to PNG
+                if (ImageType.matchOrNull(response.contentType!!.contentSubtype) == null) null
+                else
+                        withContext(Dispatchers.IO) {
+                            response.content
+                                    .toInputStream()
+                                    .uploadAsImage(
+                                            contact,
+                                            formatName = response.contentType!!.contentSubtype
+                                    )
+                        }
+            }
+            is RMEC.TextMessageEventContent -> PlainText(this.body)
+            is RMEC -> PlainText(this.body)
+            else -> null
         }
-        is RMEC.TextMessageEventContent -> PlainText(this.body)
-        is RMEC -> PlainText(this.body)
-        else -> null
-    }
-}
 
 object Messages {
     var connection: Connection? = null
