@@ -427,4 +427,5 @@ object FaceInfos {
                         CHI_TANG to "chi_tang",
                 )
             }
+    val reversedShortcodes = shortcodes.entries.associateBy({ it.value }) { it.key }
 }

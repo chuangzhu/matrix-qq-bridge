@@ -43,7 +43,7 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [ ] Files
     * [x] Picture
     * [x] Sticker
-    * [ ] Emoji
+    * [x] Emoji
     * [ ] Message reply
     * [ ] Mention
     * [ ] Redact message (within 2 mins)

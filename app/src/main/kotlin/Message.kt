@@ -18,6 +18,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import net.folivo.trixnity.client.api.MatrixApiClient
+import net.folivo.trixnity.client.api.MediaApiClient
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.events.Event
@@ -40,12 +41,15 @@ import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.QuoteReply
 import net.mamoe.mirai.message.data.buildMessageSource
 import net.mamoe.mirai.message.data.content
+import net.mamoe.mirai.message.data.messageChainOf
+import net.mamoe.mirai.message.data.toMessageChain
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 import org.jsoup.safety.Cleaner
+import org.jsoup.safety.Safelist
 
 /** QQ -> Matrix */
 suspend fun MessageContent.toMessageEventContent(
@@ -192,6 +196,7 @@ fun RMEC.TextMessageEventContent.addReplyTo(
             format = "org.matrix.custom.html",
             formattedBody =
                     mxReply.toString() + (this.formattedBody ?: TextNode(this.body).toString()),
+            // https://gitlab.com/trixnity/trixnity/-/blob/v1.1.9/trixnity-core/src/commonTest/kotlin/net/folivo/trixnity/core/serialization/events/EventSerializerTest.kt#L619-631
             relatesTo =
                     RelatesTo.Unknown(
                             raw =
@@ -223,26 +228,105 @@ fun String.asFallbackRemoveReply(): String =
         this.split("\n").filter { !it.startsWith("> ") }.joinToString("\n").trim()
 
 /** Convert string as formatted body to Jsoup nodes, and clean it */
-fun String.asFormattedBodyToNodes(): List<Node> {
+fun String.asFormattedBodyToNodes(safelist: Safelist = CustomSafelists.matrix()): List<Node> {
     val parsed = Jsoup.parseBodyFragment(this)
     // Jsoup cleaner does not remove the inner HTML of mx-reply
     // Manually remove here
     parsed.select("mx-reply").remove()
-    return Cleaner(CustomSafelists.matrix()).clean(parsed).body().childNodes()
+    return Cleaner(safelist).clean(parsed).body().childNodes()
 }
 
 /** Matrix -> QQ */
-// suspend fun RMEC.TextMessageEventContent.toMessageChain(): MessageChain {
-//     if (format == "org.matrix.custom.html" && formattedBody != null) {
-//         return formattedBody!!.asFormattedBodyToNodes().map {
-//             when (it) {
-//                 is TextNode -> PlainText(it.text())
-//                 else -> PlainText(it.text())
-//             }
-//         }.toMessageChain()
-//     }
-//     return buildMessageChain { +PlainText(body.asFallbackRemoveReply()) }
-// }
+suspend fun List<Node>.toMessageList(
+        mediaApiClient: MediaApiClient,
+        contact: Contact,
+        olStart: Int? = null
+): List<Message> {
+    var li = olStart
+    val result = mutableListOf<Message>()
+    this.forEach { node ->
+        when (node) {
+            is TextNode -> result.add(PlainText(node.text()))
+            is Element ->
+                    when (node.tagName()) {
+                        // Block, "\n...\n"
+                        "h1",
+                        "h2",
+                        "h3",
+                        "h4",
+                        "h5",
+                        "h6",
+                        "blockquote",
+                        "p",
+                        "table",
+                        "pre",
+                        "ul" -> {
+                            result.add(PlainText("\n"))
+                            result.addAll(node.childNodes().toMessageList(mediaApiClient, contact))
+                            result.add(PlainText("\n"))
+                        }
+                        "ol" -> {
+                            result.add(PlainText("\n"))
+                            result.addAll(
+                                    node.childNodes()
+                                            .toMessageList(
+                                                    mediaApiClient,
+                                                    contact,
+                                                    olStart = node.attr("start").toIntOrNull() ?: 0
+                                            )
+                            )
+                            result.add(PlainText("\n"))
+                        }
+                        // Line, "...\n"
+                        "tr",
+                        "caption" -> {
+                            result.addAll(node.childNodes().toMessageList(mediaApiClient, contact))
+                            result.add(PlainText("\n"))
+                        }
+                        // Atom
+                        "hr" -> result.add(PlainText("-----"))
+                        "br" -> result.add(PlainText("\n"))
+                        // List, ul>li -> "* ...\n", ol>li -> "1. ...\n"
+                        "li" -> {
+                            if (li != null) {
+                                li += 1
+                                result.add(PlainText("$li. "))
+                            } else result.add(PlainText("* "))
+                            result.addAll(node.childNodes().toMessageList(mediaApiClient, contact))
+                            result.add(PlainText("\n"))
+                        }
+                        // Special
+                        "img" -> {
+                            // Emoji
+                            if (node.hasAttr("data-mx-emoticon"))
+                                    FaceInfos.reversedShortcodes.getOrDefault(
+                                                    node.attr("alt").trim(':'),
+                                                    null
+                                            )
+                                            .also { if (it != null) result.add(Face(it)) }
+                            else mediaApiClient.uploadMxcAsImage(contact, node.attr("href"))
+                        }
+                    }
+        }
+    }
+    if (result.firstOrNull() is PlainText)
+            result[0] = PlainText(result.first().content.trimStart('\n'))
+    if (result.lastOrNull() is PlainText)
+            result[result.size - 1] = PlainText(result.last().content.trimEnd('\n'))
+    return result
+}
+
+suspend fun MediaApiClient.uploadMxcAsImage(contact: Contact, mxc: String?): Image? {
+    mxc ?: return null
+    val response = this.download(mxc).getOrThrow()
+    // TODO: convert WEBP to PNG
+    if (ImageType.matchOrNull(response.contentType!!.contentSubtype) == null) return null
+    return withContext(Dispatchers.IO) {
+        response.content
+                .toInputStream()
+                .uploadAsImage(contact, formatName = response.contentType!!.contentSubtype)
+    }
+}
 
 /** Matrix -> QQ */
 suspend fun MessageEventContent.toMessage(
@@ -251,32 +335,18 @@ suspend fun MessageEventContent.toMessage(
         config: Config
 ): Message? =
         when (this) {
-            is RMEC.ImageMessageEventContent, is StickerMessageEventContent -> {
-                val response =
-                        matrixApiClient
-                                .media
-                                .download(
-                                        // Kotlin "smart" cast
-                                        when (this) {
-                                            is RMEC.ImageMessageEventContent -> this.url
-                                            is StickerMessageEventContent -> this.url
-                                            else -> null
-                                        }!!
-                                )
-                                .getOrThrow()
-                // TODO: convert WEBP to PNG
-                if (ImageType.matchOrNull(response.contentType!!.contentSubtype) == null) null
-                else
-                        withContext(Dispatchers.IO) {
-                            response.content
-                                    .toInputStream()
-                                    .uploadAsImage(
-                                            contact,
-                                            formatName = response.contentType!!.contentSubtype
-                                    )
-                        }
+            is RMEC.ImageMessageEventContent ->
+                    matrixApiClient.media.uploadMxcAsImage(contact, this.url)
+            is StickerMessageEventContent ->
+                    matrixApiClient.media.uploadMxcAsImage(contact, this.url)
+            is RMEC.TextMessageEventContent -> {
+                if (this.format == "org.matrix.custom.html" && this.formattedBody != null)
+                        this.formattedBody!!
+                                .asFormattedBodyToNodes(CustomSafelists.qq())
+                                .toMessageList(matrixApiClient.media, contact)
+                                .let { if(it.size == 0) null else it.toMessageChain() }
+                else messageChainOf(PlainText(body.asFallbackRemoveReply()))
             }
-            is RMEC.TextMessageEventContent -> PlainText(this.body)
             is RMEC -> PlainText(this.body)
             else -> null
         }

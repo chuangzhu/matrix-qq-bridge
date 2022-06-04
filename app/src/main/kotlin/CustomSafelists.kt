@@ -26,4 +26,22 @@ object CustomSafelists {
     fun richReplies() =
         matrix()
             .addTags("mx-reply")
+
+    fun qq() =
+        Safelist()
+            // Block, "\n...\n"
+            .addTags("h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "p", "table", "pre")
+            // Line, "...\n"
+            .addTags("tr", "caption")
+            // Atom, hr -> "-----", br -> "\n"
+            .addTags("hr", "br")
+            // List, ul -> "\n* ...\n* ...\n", ol -> "\n1. ...\n2. ...\n"
+            .addTags("ul", "ol", "li")
+            // Special, a -> " ...(...) " or At, img -> Image
+            .addTags("a", "img")
+            .addAttributes("a", "href")
+            .addAttributes("img", "src", "data-mx-emoticon")
+            .addAttributes("ol", "start")
+            .addProtocols("a", "href", "https", "http", "ftp", "mailto", "magnet")
+            .addProtocols("img", "src", "mxc")
 }

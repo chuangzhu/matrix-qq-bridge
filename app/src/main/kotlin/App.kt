@@ -4,6 +4,8 @@ import com.charleskorn.kaml.Yaml
 import io.ktor.http.Url
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.features.CallLogging
+import io.ktor.application.install
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
@@ -119,6 +121,9 @@ fun main(args: Array<String>) {
                     host = config.appservice.hostname,
                     port = config.appservice.port
             ) {
+                install(CallLogging) {
+                    level = org.slf4j.event.Level.WARN
+                }
                 matrixAppserviceModule(
                         MatrixAppserviceProperties(registrationConfig.hsToken),
                         appserviceService,
