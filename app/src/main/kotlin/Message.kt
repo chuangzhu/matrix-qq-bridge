@@ -272,7 +272,7 @@ suspend fun List<Node>.toMessageList(
                                             .toMessageList(
                                                     mediaApiClient,
                                                     contact,
-                                                    olStart = node.attr("start").toIntOrNull() ?: 0
+                                                    olStart = node.attr("start").toIntOrNull() ?: 1
                                             )
                             )
                             result.add(PlainText("\n"))
@@ -289,21 +289,22 @@ suspend fun List<Node>.toMessageList(
                         // List, ul>li -> "* ...\n", ol>li -> "1. ...\n"
                         "li" -> {
                             if (li != null) {
-                                li += 1
                                 result.add(PlainText("$li. "))
+                                li += 1
                             } else result.add(PlainText("* "))
                             result.addAll(node.childNodes().toMessageList(mediaApiClient, contact))
                             result.add(PlainText("\n"))
                         }
                         // Special
                         "img" -> {
-                            // Emoji
-                            if (node.hasAttr("data-mx-emoticon"))
+                            val faceId =
                                     FaceInfos.reversedShortcodes.getOrDefault(
-                                                    node.attr("alt").trim(':'),
-                                                    null
-                                            )
-                                            .also { if (it != null) result.add(Face(it)) }
+                                            node.attr("alt").trim(':'),
+                                            null
+                                    )
+                            // Emoji
+                            if (node.hasAttr("data-mx-emoticon") && faceId != null)
+                                    result.add(Face(faceId))
                             else mediaApiClient.uploadMxcAsImage(contact, node.attr("href"))
                         }
                     }
@@ -344,7 +345,7 @@ suspend fun MessageEventContent.toMessage(
                         this.formattedBody!!
                                 .asFormattedBodyToNodes(CustomSafelists.qq())
                                 .toMessageList(matrixApiClient.media, contact)
-                                .let { if(it.size == 0) null else it.toMessageChain() }
+                                .let { if (it.size == 0) null else it.toMessageChain() }
                 else messageChainOf(PlainText(body.asFallbackRemoveReply()))
             }
             is RMEC -> PlainText(this.body)

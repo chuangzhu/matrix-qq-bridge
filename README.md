@@ -1,6 +1,6 @@
 # matrix-appservice-qq
 
-Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitlab.com/benkuly/trixnity) and [Mirai](https://github.com/mamoe/mirai).
+Work in progress. A Matrix-QQ [puppeting bridge](https://matrix.org/docs/guides/types-of-bridging#simple-puppeted-bridge) based on [Trixnity](https://gitlab.com/benkuly/trixnity) and [Mirai](https://github.com/mamoe/mirai).
 
 * QQ → Matrix
   * [ ] Message content
@@ -15,6 +15,8 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [ ] Withdraw message
     * [ ] Miniapp message
     * [ ] Location
+    * [ ] Audio
+    * Video (not yet supported by Mirai)
   * [x] Group message
   * [ ] Friend message
   * [ ] Stranger message
@@ -48,6 +50,9 @@ Work in progress. A Matrix-QQ puppeting bridge based on [Trixnity](https://gitla
     * [ ] Mention
     * [ ] Redact message (within 2 mins)
     * [ ] Location
+    * [ ] Emote
+    * [ ] Audio
+    * [ ] Video (to a file)
   * [x] Room message
   * [ ] Direct message
-  * [ ] Relay userbot
+  * [ ] Relay userbot and plumbed room
