@@ -4,6 +4,7 @@ import java.util.UUID
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.folivo.trixnity.core.model.RoomAliasId
+import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.UserId
 
 @Serializable
@@ -56,6 +57,13 @@ data class Config(val homeserver: Homeserver, val appservice: Appservice, val br
         return mxid.localpart.removePrefix(appservice.aliasPrefix).toLongOrNull()
     }
 }
+
+fun UserId.isGhost(config: Config) =
+        this.domain != config.homeserver.domain &&
+                this.localpart.startsWith(config.appservice.usernamePrefix)
+fun RoomAliasId.isPortal(config: Config) =
+        this.domain != config.homeserver.domain &&
+                this.localpart.startsWith(config.appservice.aliasPrefix)
 
 @Serializable
 data class RegistrationConfig(

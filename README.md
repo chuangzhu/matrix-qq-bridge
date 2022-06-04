@@ -47,7 +47,7 @@ Work in progress. A Matrix-QQ [puppeting bridge](https://matrix.org/docs/guides/
     * [x] Sticker
     * [x] Emoji
     * [ ] Message reply
-    * [ ] Mention
+    * [x] Mention
     * [ ] Redact message (within 2 mins)
     * [ ] Location
     * [ ] Emote

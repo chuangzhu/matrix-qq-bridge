@@ -33,7 +33,7 @@ object CustomSafelists {
             .addTags("h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "p", "table", "pre")
             // Line, "...\n"
             .addTags("tr", "caption")
-            // Atom, hr -> "-----", br -> "\n"
+            // Atom, hr -> "\n-----\n", br -> "\n"
             .addTags("hr", "br")
             // List, ul -> "\n* ...\n* ...\n", ol -> "\n1. ...\n2. ...\n"
             .addTags("ul", "ol", "li")

@@ -21,6 +21,7 @@ import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.client.api.MediaApiClient
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.Event
 import net.folivo.trixnity.core.model.events.MessageEventContent
 import net.folivo.trixnity.core.model.events.RelatesTo
@@ -240,11 +241,14 @@ fun String.asFormattedBodyToNodes(safelist: Safelist = CustomSafelists.matrix())
 suspend fun List<Node>.toMessageList(
         mediaApiClient: MediaApiClient,
         contact: Contact,
+        config: Config,
         olStart: Int? = null
 ): List<Message> {
     var li = olStart
     val result = mutableListOf<Message>()
     this.forEach { node ->
+        suspend fun addChildNodes() =
+                result.addAll(node.childNodes().toMessageList(mediaApiClient, contact, config))
         when (node) {
             is TextNode -> result.add(PlainText(node.text()))
             is Element ->
@@ -262,7 +266,7 @@ suspend fun List<Node>.toMessageList(
                         "pre",
                         "ul" -> {
                             result.add(PlainText("\n"))
-                            result.addAll(node.childNodes().toMessageList(mediaApiClient, contact))
+                            addChildNodes()
                             result.add(PlainText("\n"))
                         }
                         "ol" -> {
@@ -272,6 +276,7 @@ suspend fun List<Node>.toMessageList(
                                             .toMessageList(
                                                     mediaApiClient,
                                                     contact,
+                                                    config,
                                                     olStart = node.attr("start").toIntOrNull() ?: 1
                                             )
                             )
@@ -280,11 +285,11 @@ suspend fun List<Node>.toMessageList(
                         // Line, "...\n"
                         "tr",
                         "caption" -> {
-                            result.addAll(node.childNodes().toMessageList(mediaApiClient, contact))
+                            addChildNodes()
                             result.add(PlainText("\n"))
                         }
                         // Atom
-                        "hr" -> result.add(PlainText("-----"))
+                        "hr" -> result.add(PlainText("\n-----\n"))
                         "br" -> result.add(PlainText("\n"))
                         // List, ul>li -> "* ...\n", ol>li -> "1. ...\n"
                         "li" -> {
@@ -292,7 +297,7 @@ suspend fun List<Node>.toMessageList(
                                 result.add(PlainText("$li. "))
                                 li += 1
                             } else result.add(PlainText("* "))
-                            result.addAll(node.childNodes().toMessageList(mediaApiClient, contact))
+                            addChildNodes()
                             result.add(PlainText("\n"))
                         }
                         // Special
@@ -305,7 +310,19 @@ suspend fun List<Node>.toMessageList(
                             // Emoji
                             if (node.hasAttr("data-mx-emoticon") && faceId != null)
                                     result.add(Face(faceId))
-                            else mediaApiClient.uploadMxcAsImage(contact, node.attr("href"))
+                            else
+                                    mediaApiClient.uploadMxcAsImage(contact, node.attr("src"))
+                                            ?.also { result.add(it) }
+                        }
+                        "a" -> {
+                            val url = MatrixToURL.fromStringOrNull(node.attr("href"))
+                            // Mention
+                            if (url != null && url.id is UserId && url.id.isGhost(config)) {
+                                config.getGhostQqIdOrNull(url.id)?.also { result.add(At(it)) }
+                            } else {
+                                addChildNodes()
+                                result.add(PlainText("(${node.attr("href")})"))
+                            }
                         }
                     }
         }
@@ -344,7 +361,7 @@ suspend fun MessageEventContent.toMessage(
                 if (this.format == "org.matrix.custom.html" && this.formattedBody != null)
                         this.formattedBody!!
                                 .asFormattedBodyToNodes(CustomSafelists.qq())
-                                .toMessageList(matrixApiClient.media, contact)
+                                .toMessageList(matrixApiClient.media, contact, config)
                                 .let { if (it.size == 0) null else it.toMessageChain() }
                 else messageChainOf(PlainText(body.asFallbackRemoveReply()))
             }

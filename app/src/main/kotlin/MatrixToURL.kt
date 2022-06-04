@@ -38,5 +38,7 @@ class MatrixToURL {
 
     companion object {
         fun isMatrixToURL(url: URL) = url.protocol == "https" && url.authority == "matrix.to"
+        fun isMatrixToURL(url: String) = isMatrixToURL(URL(url))
+        fun fromStringOrNull(url: String) = if (isMatrixToURL(url)) MatrixToURL(url) else null
     }
 }
