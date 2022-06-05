@@ -1,4 +1,4 @@
-package land.melty.matrixappserviceqq
+package land.melty.matrixqqbridge
 
 import org.jsoup.safety.Safelist
 
@@ -40,7 +40,7 @@ object CustomSafelists {
             // Special, a -> " ...(...) " or At, img -> Image
             .addTags("a", "img")
             .addAttributes("a", "href")
-            .addAttributes("img", "src", "data-mx-emoticon")
+            .addAttributes("img", "src", "alt", "data-mx-emoticon")
             .addAttributes("ol", "start")
             .addProtocols("a", "href", "https", "http", "ftp", "mailto", "magnet")
             .addProtocols("img", "src", "mxc")

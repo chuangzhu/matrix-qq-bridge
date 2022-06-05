@@ -1,4 +1,4 @@
-package land.melty.matrixappserviceqq
+package land.melty.matrixqqbridge
 
 import com.charleskorn.kaml.Yaml
 import io.ktor.http.Url

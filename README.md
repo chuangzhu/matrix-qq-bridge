@@ -1,4 +1,4 @@
-# matrix-appservice-qq
+# matrix-qq-bridge
 
 Work in progress. A Matrix-QQ [puppeting bridge](https://matrix.org/docs/guides/types-of-bridging#simple-puppeted-bridge) based on [Trixnity](https://gitlab.com/benkuly/trixnity) and [Mirai](https://github.com/mamoe/mirai).
 

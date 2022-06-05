@@ -63,5 +63,5 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    mainClass.set("land.melty.matrixappserviceqq.AppKt")
+    mainClass.set("land.melty.matrixqqbridge.AppKt")
 }

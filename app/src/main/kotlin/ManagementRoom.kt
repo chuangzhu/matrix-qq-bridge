@@ -1,4 +1,4 @@
-package land.melty.matrixappserviceqq
+package land.melty.matrixqqbridge
 
 import java.sql.Connection
 import net.folivo.trixnity.client.api.MatrixApiClient

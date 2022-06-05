@@ -1,4 +1,4 @@
-package land.melty.matrixappserviceqq
+package land.melty.matrixqqbridge
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

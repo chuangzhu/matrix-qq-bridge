@@ -1,4 +1,4 @@
-package land.melty.matrixappserviceqq
+package land.melty.matrixqqbridge
 
 // import net.mamoe.mirai.utils.LoginSolver
 

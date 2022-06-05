@@ -1,4 +1,4 @@
-package land.melty.matrixappserviceqq
+package land.melty.matrixqqbridge
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

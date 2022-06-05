@@ -1,4 +1,4 @@
-package land.melty.matrixappserviceqq
+package land.melty.matrixqqbridge
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.*
