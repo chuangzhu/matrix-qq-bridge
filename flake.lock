@@ -25,16 +25,15 @@
         ]
       },
       "locked": {
-        "lastModified": 1653326174,
-        "narHash": "sha256-25rxyGBugTzdKlYeM7i/V0AK1KwIBd4e8BJ1gj0iS8I=",
-        "owner": "Mic92",
+        "lastModified": 1638650308,
+        "narHash": "sha256-KTWEI33QPP1KGh4VKwjvQqJZSBGmicupxD4kkcxR+pw=",
+        "owner": "lorenzleutgeb",
         "repo": "gradle2nix",
-        "rev": "c17a7f56b5bb77e20fbec649895f0d5fb3d77fc6",
+        "rev": "3f9d3cb01ab32d0514844d2f3efc0cea85278cf4",
         "type": "github"
       },
       "original": {
-        "owner": "Mic92",
-        "ref": "fix-compat",
+        "owner": "lorenzleutgeb",
         "repo": "gradle2nix",
         "type": "github"
       }

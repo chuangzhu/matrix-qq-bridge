@@ -1,6 +1,6 @@
 {
   "": {
-    "name": "matrix-appservice-qq",
+    "name": "matrix-qq-bridge",
     "version": "unspecified",
     "path": "",
     "gradle": {
@@ -1067,6 +1067,36 @@
         {
           "id": {
             "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-coroutines-core",
+            "version": "1.5.0",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "kotlinx-coroutines-core-1.5.0.module",
+          "path": "org/jetbrains/kotlinx/kotlinx-coroutines-core/1.5.0",
+          "urls": [
+            "https://plugins.gradle.org/m2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.5.0/kotlinx-coroutines-core-1.5.0.module"
+          ],
+          "sha256": "d8a26a896da32fb1f8c3f13fe41cb798a612a1c1ddf3a555d82ee1ff16ef13d3"
+        },
+        {
+          "id": {
+            "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-coroutines-core",
+            "version": "1.5.0",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "kotlinx-coroutines-core-1.5.0.pom",
+          "path": "org/jetbrains/kotlinx/kotlinx-coroutines-core/1.5.0",
+          "urls": [
+            "https://plugins.gradle.org/m2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.5.0/kotlinx-coroutines-core-1.5.0.pom"
+          ],
+          "sha256": "ffc9363f7c9bc38d261c938cdb7fa45cee56894d71abb29dfbfdb70b3558d452"
+        },
+        {
+          "id": {
+            "group": "org.jetbrains.kotlinx",
             "name": "kotlinx-coroutines-core-jvm",
             "version": "1.5.0",
             "type": "jar",
@@ -1142,6 +1172,36 @@
       ],
       "buildscript": [],
       "project": [
+        {
+          "id": {
+            "group": "com.benasher44",
+            "name": "uuid",
+            "version": "0.4.0",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "uuid-0.4.0.module",
+          "path": "com/benasher44/uuid/0.4.0",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/com/benasher44/uuid/0.4.0/uuid-0.4.0.module"
+          ],
+          "sha256": "d8f71a02187a7ff6c066fa1a6e09c3e81d48aee20c0b32b6b4c60eca02d5003e"
+        },
+        {
+          "id": {
+            "group": "com.benasher44",
+            "name": "uuid",
+            "version": "0.4.0",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "uuid-0.4.0.pom",
+          "path": "com/benasher44/uuid/0.4.0",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/com/benasher44/uuid/0.4.0/uuid-0.4.0.pom"
+          ],
+          "sha256": "f863a5983068b5f3f626b5fa196543da3e89706f8119fa0d3c9ab7aca1ee778d"
+        },
         {
           "id": {
             "group": "com.benasher44",
@@ -1700,6 +1760,36 @@
         {
           "id": {
             "group": "io.github.microutils",
+            "name": "kotlin-logging",
+            "version": "2.1.21",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "kotlin-logging-2.1.21.module",
+          "path": "io/github/microutils/kotlin-logging/2.1.21",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/io/github/microutils/kotlin-logging/2.1.21/kotlin-logging-2.1.21.module"
+          ],
+          "sha256": "e28a446453f3fc18a0ac579f1a3434a62338795fe0ef55f248ab39fab1f86b7f"
+        },
+        {
+          "id": {
+            "group": "io.github.microutils",
+            "name": "kotlin-logging",
+            "version": "2.1.21",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "kotlin-logging-2.1.21.pom",
+          "path": "io/github/microutils/kotlin-logging/2.1.21",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/io/github/microutils/kotlin-logging/2.1.21/kotlin-logging-2.1.21.pom"
+          ],
+          "sha256": "a27ce634574dc894a90d51318663bd4847b311f19c2f5bc4df8ac3973e8d4b0b"
+        },
+        {
+          "id": {
+            "group": "io.github.microutils",
             "name": "kotlin-logging-jvm",
             "version": "2.1.21",
             "type": "jar",
@@ -2015,6 +2105,36 @@
         {
           "id": {
             "group": "io.ktor",
+            "name": "ktor-client-json",
+            "version": "1.6.7",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "ktor-client-json-1.6.7.module",
+          "path": "io/ktor/ktor-client-json/1.6.7",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-json/1.6.7/ktor-client-json-1.6.7.module"
+          ],
+          "sha256": "9fbb18af7156f09012f69baf6fba7224454f7c0fa3e9511a46644c76e6a58a60"
+        },
+        {
+          "id": {
+            "group": "io.ktor",
+            "name": "ktor-client-json",
+            "version": "1.6.7",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "ktor-client-json-1.6.7.pom",
+          "path": "io/ktor/ktor-client-json/1.6.7",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-json/1.6.7/ktor-client-json-1.6.7.pom"
+          ],
+          "sha256": "05b5c9a88c660cf6fa99e907e088ae1245505129d8bea9e248934229d179f720"
+        },
+        {
+          "id": {
+            "group": "io.ktor",
             "name": "ktor-client-json-jvm",
             "version": "1.6.7",
             "type": "jar",
@@ -2101,6 +2221,36 @@
             "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-okhttp/1.6.5/ktor-client-okhttp-1.6.5.pom"
           ],
           "sha256": "cceca7bec80a5965702f5486c50ab071efa00e8f41489a2edae5c22048e55521"
+        },
+        {
+          "id": {
+            "group": "io.ktor",
+            "name": "ktor-client-serialization",
+            "version": "1.6.7",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "ktor-client-serialization-1.6.7.module",
+          "path": "io/ktor/ktor-client-serialization/1.6.7",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-serialization/1.6.7/ktor-client-serialization-1.6.7.module"
+          ],
+          "sha256": "61d12952d8d5ffc67fc4797c21abcfc66340df47f28480d0221b33fe9bee3d8f"
+        },
+        {
+          "id": {
+            "group": "io.ktor",
+            "name": "ktor-client-serialization",
+            "version": "1.6.7",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "ktor-client-serialization-1.6.7.pom",
+          "path": "io/ktor/ktor-client-serialization/1.6.7",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-serialization/1.6.7/ktor-client-serialization-1.6.7.pom"
+          ],
+          "sha256": "2594f516a46978d63ddaad78004a4038b6f503d4b03e7ed8ff4c1cb6e31449c2"
         },
         {
           "id": {
@@ -2825,6 +2975,36 @@
         {
           "id": {
             "group": "io.ktor",
+            "name": "ktor-server-core-kotlinMultiplatform",
+            "version": "1.6.7",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "ktor-server-core-kotlinMultiplatform-1.6.7.module",
+          "path": "io/ktor/ktor-server-core-kotlinMultiplatform/1.6.7",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-core-kotlinMultiplatform/1.6.7/ktor-server-core-kotlinMultiplatform-1.6.7.module"
+          ],
+          "sha256": "ff07abd8653824c9e6e53ea18244cac2e0c44f7155b82387cdbfb8de3648a97f"
+        },
+        {
+          "id": {
+            "group": "io.ktor",
+            "name": "ktor-server-core-kotlinMultiplatform",
+            "version": "1.6.7",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "ktor-server-core-kotlinMultiplatform-1.6.7.pom",
+          "path": "io/ktor/ktor-server-core-kotlinMultiplatform/1.6.7",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-core-kotlinMultiplatform/1.6.7/ktor-server-core-kotlinMultiplatform-1.6.7.pom"
+          ],
+          "sha256": "2ccdf1e28599b28949d95c15e58f88e0274f51a6d2a30a657b35d058555c16e8"
+        },
+        {
+          "id": {
+            "group": "io.ktor",
             "name": "ktor-server-host-common",
             "version": "1.6.7",
             "type": "jar",
@@ -3515,6 +3695,36 @@
         {
           "id": {
             "group": "me.him188",
+            "name": "kotlin-jvm-blocking-bridge-runtime",
+            "version": "2.0.0-160.3",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "kotlin-jvm-blocking-bridge-runtime-2.0.0-160.3.module",
+          "path": "me/him188/kotlin-jvm-blocking-bridge-runtime/2.0.0-160.3",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/me/him188/kotlin-jvm-blocking-bridge-runtime/2.0.0-160.3/kotlin-jvm-blocking-bridge-runtime-2.0.0-160.3.module"
+          ],
+          "sha256": "30f09448f332da3ffe9bdf6f0bd43a4d489dc4890b9237478745911957850785"
+        },
+        {
+          "id": {
+            "group": "me.him188",
+            "name": "kotlin-jvm-blocking-bridge-runtime",
+            "version": "2.0.0-160.3",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "kotlin-jvm-blocking-bridge-runtime-2.0.0-160.3.pom",
+          "path": "me/him188/kotlin-jvm-blocking-bridge-runtime/2.0.0-160.3",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/me/him188/kotlin-jvm-blocking-bridge-runtime/2.0.0-160.3/kotlin-jvm-blocking-bridge-runtime-2.0.0-160.3.pom"
+          ],
+          "sha256": "d50d6a7e1d30d401744560d1899a3286a223dc3f032a09aada3bf4bc9b83e44c"
+        },
+        {
+          "id": {
+            "group": "me.him188",
             "name": "kotlin-jvm-blocking-bridge-runtime-jvm",
             "version": "2.0.0-160.3",
             "type": "jar",
@@ -3950,6 +4160,36 @@
         {
           "id": {
             "group": "net.mamoe",
+            "name": "mirai-console-compiler-annotations",
+            "version": "2.10.1",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "mirai-console-compiler-annotations-2.10.1.module",
+          "path": "net/mamoe/mirai-console-compiler-annotations/2.10.1",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/net/mamoe/mirai-console-compiler-annotations/2.10.1/mirai-console-compiler-annotations-2.10.1.module"
+          ],
+          "sha256": "fa40d52d695349bdeec752727bfb1db0d33ffe304b8810d1e9e83a2e3ed8ae00"
+        },
+        {
+          "id": {
+            "group": "net.mamoe",
+            "name": "mirai-console-compiler-annotations",
+            "version": "2.10.1",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "mirai-console-compiler-annotations-2.10.1.pom",
+          "path": "net/mamoe/mirai-console-compiler-annotations/2.10.1",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/net/mamoe/mirai-console-compiler-annotations/2.10.1/mirai-console-compiler-annotations-2.10.1.pom"
+          ],
+          "sha256": "52f76387e01b8e0eb420457b62524970351b09230cb458b3e9cfae076287e61a"
+        },
+        {
+          "id": {
+            "group": "net.mamoe",
             "name": "mirai-console-compiler-annotations-jvm",
             "version": "2.10.1",
             "type": "jar",
@@ -4156,6 +4396,36 @@
             "https://repo.maven.apache.org/maven2/net/mamoe/mirai-core-jvm/2.10.1/mirai-core-jvm-2.10.1.pom"
           ],
           "sha256": "7f80d7fc11145668562b0f8d7432cb3243c7fe4971a1d7c9741b0354065719e3"
+        },
+        {
+          "id": {
+            "group": "net.mamoe",
+            "name": "mirai-core-utils",
+            "version": "2.10.1",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "mirai-core-utils-2.10.1.module",
+          "path": "net/mamoe/mirai-core-utils/2.10.1",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/net/mamoe/mirai-core-utils/2.10.1/mirai-core-utils-2.10.1.module"
+          ],
+          "sha256": "fffc1595a12363a6d4f31deab51f31e0f30a03bc6b01aeb038254ff14bf442ff"
+        },
+        {
+          "id": {
+            "group": "net.mamoe",
+            "name": "mirai-core-utils",
+            "version": "2.10.1",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "mirai-core-utils-2.10.1.pom",
+          "path": "net/mamoe/mirai-core-utils/2.10.1",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/net/mamoe/mirai-core-utils/2.10.1/mirai-core-utils-2.10.1.pom"
+          ],
+          "sha256": "a070b15fe33f8e703e7f0efeb71c1f0d0aeccb23e4a0645d4e7d028d4efd9118"
         },
         {
           "id": {
@@ -5720,6 +5990,51 @@
         {
           "id": {
             "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-coroutines-bom",
+            "version": "1.6.0",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "kotlinx-coroutines-bom-1.6.0.pom",
+          "path": "org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.6.0",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-bom/1.6.0/kotlinx-coroutines-bom-1.6.0.pom"
+          ],
+          "sha256": "da2327250eabf2adeb5ba4d015a437f34475102d15ba3d7448da71dfcfd196de"
+        },
+        {
+          "id": {
+            "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-coroutines-core",
+            "version": "1.5.0",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "kotlinx-coroutines-core-1.5.0.module",
+          "path": "org/jetbrains/kotlinx/kotlinx-coroutines-core/1.5.0",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.5.0/kotlinx-coroutines-core-1.5.0.module"
+          ],
+          "sha256": "d8a26a896da32fb1f8c3f13fe41cb798a612a1c1ddf3a555d82ee1ff16ef13d3"
+        },
+        {
+          "id": {
+            "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-coroutines-core",
+            "version": "1.5.0",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "kotlinx-coroutines-core-1.5.0.pom",
+          "path": "org/jetbrains/kotlinx/kotlinx-coroutines-core/1.5.0",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core/1.5.0/kotlinx-coroutines-core-1.5.0.pom"
+          ],
+          "sha256": "ffc9363f7c9bc38d261c938cdb7fa45cee56894d71abb29dfbfdb70b3558d452"
+        },
+        {
+          "id": {
+            "group": "org.jetbrains.kotlinx",
             "name": "kotlinx-coroutines-core",
             "version": "1.6.0",
             "type": "jar",
@@ -5896,6 +6211,36 @@
             "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-jdk8/1.6.0/kotlinx-coroutines-jdk8-1.6.0.pom"
           ],
           "sha256": "0b2070e123c7cdc262b506ce2ad7e7d09d7bea6dab4acbfd58d27e7131684b00"
+        },
+        {
+          "id": {
+            "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-datetime",
+            "version": "0.3.2",
+            "type": "module",
+            "extension": "module"
+          },
+          "name": "kotlinx-datetime-0.3.2.module",
+          "path": "org/jetbrains/kotlinx/kotlinx-datetime/0.3.2",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-datetime/0.3.2/kotlinx-datetime-0.3.2.module"
+          ],
+          "sha256": "e3d757cf818d42d3705b9b29d4b7f845d1da7df89d0b30b47eb70dc1d4676ca0"
+        },
+        {
+          "id": {
+            "group": "org.jetbrains.kotlinx",
+            "name": "kotlinx-datetime",
+            "version": "0.3.2",
+            "type": "pom",
+            "extension": "pom"
+          },
+          "name": "kotlinx-datetime-0.3.2.pom",
+          "path": "org/jetbrains/kotlinx/kotlinx-datetime/0.3.2",
+          "urls": [
+            "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-datetime/0.3.2/kotlinx-datetime-0.3.2.pom"
+          ],
+          "sha256": "8c6e4d6784bd9358dac0502ff6a87cfaaaf05f69480a6204b0bb0437df373e3b"
         },
         {
           "id": {

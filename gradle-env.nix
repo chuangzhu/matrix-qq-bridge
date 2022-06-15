@@ -24,10 +24,12 @@
 , buildEnv
 , fetchs3
 , fetchurl
-, gradleGen
-, callPackage
 , writeText
 , writeTextDir
+, jdk8
+, gradleBuildJdk ? jdk8
+, makeWrapper
+, unzip
 }:
 
 {
@@ -325,10 +327,73 @@ let
         ${extraInit}
       '';
 
-  mkGradle = gradleSpec:
-    callPackage (gradleGen {
-      inherit (gradleSpec) nativeVersion version sha256;
-    }) {};
+  # Adapted from https://github.com/NixOS/nixpkgs/blob/01f4c7ec881a0a52638f090aacf51461a20b472f/pkgs/development/tools/build-managers/gradle/default.nix
+  mkGradle = { version, type, url, sha256, nativeVersion }:
+    let
+      java = gradleBuildJdk;
+      javaToolchains = [];
+    in
+    stdenv.mkDerivation rec {
+      pname = "gradle";
+      inherit version;
+
+      src = fetchurl {
+        inherit sha256 url;
+      };
+
+      dontBuild = true;
+
+      nativeBuildInputs = [ makeWrapper unzip ];
+      buildInputs = [ java ];
+
+      # NOTE: For more information on toolchains,
+      # see https://docs.gradle.org/current/userguide/toolchains.html
+      installPhase = with builtins;
+        let
+          toolchain = rec {
+            var = x: "JAVA_TOOLCHAIN_NIX_${toString x}";
+            vars = (lib.imap0 (i: x: ("${var i} ${x}")) javaToolchains);
+            varNames = lib.imap0 (i: x: var i) javaToolchains;
+            property = " -Porg.gradle.java.installations.fromEnv='${
+                 concatStringsSep "," varNames
+               }'";
+          };
+          vars = concatStringsSep "\n" (map (x: "  --set ${x} \\")
+            ([ "JAVA_HOME ${java.home}" ] ++ toolchain.vars));
+        in ''
+          mkdir -pv $out/lib/gradle/
+          cp -rv lib/ $out/lib/gradle/
+
+          gradle_launcher_jar=$(echo $out/lib/gradle/lib/gradle-launcher-*.jar)
+          test -f $gradle_launcher_jar
+          makeWrapper ${java}/bin/java $out/bin/gradle \
+            ${vars}
+            --add-flags "-classpath $gradle_launcher_jar org.gradle.launcher.GradleMain${toolchain.property}"
+        '';
+
+      dontFixup = !stdenv.isLinux;
+
+      fixupPhase = let arch = if stdenv.is64bit then "amd64" else "i386";
+      in ''
+        mkdir patching
+        pushd patching
+        jar xf $out/lib/gradle/lib/native-platform-linux-${arch}-${nativeVersion}.jar
+        patchelf --set-rpath "${stdenv.cc.cc.lib}/lib:${stdenv.cc.cc.lib}/lib64" net/rubygrapefruit/platform/linux-${arch}/libnative-platform.so
+        jar cf native-platform-linux-${arch}-${nativeVersion}.jar .
+        mv native-platform-linux-${arch}-${nativeVersion}.jar $out/lib/gradle/lib/
+        popd
+
+        # The scanner doesn't pick up the runtime dependency in the jar.
+        # Manually add a reference where it will be found.
+        mkdir $out/nix-support
+        echo ${stdenv.cc.cc} > $out/nix-support/manual-runtime-dependencies
+      '';
+
+      meta = with lib; {
+        license = licenses.asl20;
+        platforms = platforms.unix;
+      };
+    };
 
   mkProjectEnv = projectSpec: rec {
     inherit (projectSpec) name path version;

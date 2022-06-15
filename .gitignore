@@ -13,3 +13,6 @@ dendrite
 *.db
 
 tar
+
+result
+result-*

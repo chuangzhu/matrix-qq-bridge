@@ -2,6 +2,22 @@
 
 Work in progress. A Matrix-QQ [puppeting bridge](https://matrix.org/docs/guides/types-of-bridging#simple-puppeted-bridge) based on [Trixnity](https://gitlab.com/benkuly/trixnity) and [Mirai](https://github.com/mamoe/mirai).
 
+## Building
+
+```shellsession
+$ gradle installDist
+```
+
+JARs and a wrapper can be found in `app/build/install/app/`.
+
+### Using Nix flakes
+
+```shellsession
+$ nix build
+```
+
+## Features and roadmap
+
 * QQ → Matrix
   * [ ] Message content
     * [x] Text
