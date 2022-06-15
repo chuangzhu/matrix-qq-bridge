@@ -5,7 +5,7 @@ Work in progress. A Matrix-QQ [puppeting bridge](https://matrix.org/docs/guides/
 * QQ → Matrix
   * [ ] Message content
     * [x] Text
-    * [ ] Files
+    * [ ] Files (partial implementation in Mirai, group only)
     * [x] Picture
     * [x] Sticker
     * [x] Emoji
@@ -14,8 +14,8 @@ Work in progress. A Matrix-QQ [puppeting bridge](https://matrix.org/docs/guides/
     * [ ] Nudge
     * [ ] Withdraw message
     * [ ] Miniapp message
-    * [ ] Location
     * [ ] Audio
+    * Location (not yet supported by Mirai)
     * Video (not yet supported by Mirai)
   * [x] Group message
   * [ ] Friend message

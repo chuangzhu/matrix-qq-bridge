@@ -15,18 +15,42 @@
         "type": "github"
       }
     },
+    "gradle2nix": {
+      "inputs": {
+        "flake-utils": [
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1653326174,
+        "narHash": "sha256-25rxyGBugTzdKlYeM7i/V0AK1KwIBd4e8BJ1gj0iS8I=",
+        "owner": "Mic92",
+        "repo": "gradle2nix",
+        "rev": "c17a7f56b5bb77e20fbec649895f0d5fb3d77fc6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Mic92",
+        "ref": "fix-compat",
+        "repo": "gradle2nix",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1651726670,
-	"narHash": "sha256-GNay7yDPtLcRcKCNHldug85AhAvBpTtPEJWSSDYBw8U=",
+        "lastModified": 1655096306,
+        "narHash": "sha256-3B3zBaQVLL956deZgmucouvkZroObQ4JKHzbIfFS9/c=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "e10da1c7f542515b609f8dfbcf788f3d85b14936",
+        "rev": "a119e218ad27bea32057a3463e3694a61c9e3802",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-unstable",
+        "ref": "nixos-22.05",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -34,6 +58,7 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
+        "gradle2nix": "gradle2nix",
         "nixpkgs": "nixpkgs"
       }
     }
