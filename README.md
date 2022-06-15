@@ -10,10 +10,65 @@ $ gradle installDist
 
 JARs and a wrapper can be found in `app/build/install/app/`.
 
-### Using Nix flakes
+## Usage
+
+A example config for the bridge is at [config-example.yaml](./config-example.yaml).
+
+Generate registration config file for your homeserver:
 
 ```shellsession
-$ nix build
+$ ./app/build/install/app/bin/app config.yaml > qq-registration.yaml
+```
+
+Add the registration config file to your homeserver's config:
+
+```yaml
+# Synapse
+app_service_config_files:
+- /path/to/your/qq-registration.yaml
+
+# Dendrite
+app_service_api:
+  config_files:
+  - /path/to/your/qq-registration.yaml
+```
+
+Restart the homeserver, then start the bridge:
+
+```shellsession
+$ ./app/build/install/app/bin/app config.yaml qq-registration.yaml
+```
+
+## Usage with Nix flakes
+
+This repository is a flake, and it includes a NixOS module.
+
+```nix
+{
+  inputs.matrix-qq-bridge.url = "github:chuangzhu/matrix-qq-bridge";
+  outputs = { self, nixpkgs, matrix-qq-bridge }: {
+    nixosConfigurations.your-host-name = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        matrix-qq-bridge.nixosModules.matrix-qq-bridge
+        {
+          services.matrix-qq-bridge = {
+            enable = true;
+            settings = { /* Configuration as Nix attribute set */ };
+            serviceDependencies = [ "matrix-synapse.service" ];
+          };
+          services.matrix-synapse = {
+            enable = true;
+            settings.app_service_config_files = [ "/run/credentials/matrix-synapse.service/matrix-qq-bridge" ];
+          };
+          systemd.services.matrix-synapse.serviceConfig.LoadCredential = [
+            "matrix-qq-bridge:/var/lib/matrix-qq-bridge/qq-registration.yaml"
+          ];
+        }
+      ];
+    };
+  };
+}
 ```
 
 ## Features and roadmap

@@ -10,6 +10,76 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, gradle2nix }:
+    {
+      nixosModules.matrix-qq-bridge = { config, lib, pkgs, ... }:
+        let
+          cfg = config.services.matrix-qq-bridge;
+          app = "${self.defaultPackage.${pkgs.stdenv.system}}/bin/app";
+          dataDir = "/var/lib/matrix-qq-bridge";
+          # All JSON files are valid YAML
+          settingsFile = pkgs.writeText "matrix-qq-bridge.yaml" (builtins.toJSON cfg.settings);
+          registrationFile = "${dataDir}/qq-registration.yaml";
+        in
+        {
+          # Interface
+          options.services.matrix-qq-bridge = with lib; rec {
+            enable = mkEnableOption "a Matrix-QQ puppeting bridge";
+            settings = mkOption rec {
+              type = types.attrs;
+              apply = recursiveUpdate default;
+              default = {
+                homeserver = { };
+                appservice = rec {
+                  address = "http://localhost:${toString port}";
+                  hostname = "0.0.0.0";
+                  port = 8245;
+                  database = "sqlite:${dataDir}/matrix-qq-bridge.db";
+                  id = "qq";
+                  bot_username = "qqbridge";
+                  username_prefix = "_qq_";
+                  alias_prefix = "_qq_";
+                };
+                bridge = {
+                  permissions = { };
+                };
+              };
+            };
+            serviceDependencies = mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+            };
+          };
+
+          # Implementation
+          config = lib.mkIf cfg.enable {
+            systemd.services.matrix-qq-bridge = {
+              description = "Matrix-QQ puppeting bridge";
+              wantedBy = [ "multi-user.target" ];
+              wants = [ "network-online.target" ] ++ cfg.serviceDependencies;
+              after = [ "network-online.target" ] ++ cfg.serviceDependencies;
+              preStart = ''
+                if [ ! -f '${registrationFile}' ]; then
+                  ${app} '${settingsFile}' > '${registrationFile}'
+                fi
+              '';
+              serviceConfig = {
+                ExecStart = "${app} '${settingsFile}' '${registrationFile}'";
+                Restart = "always";
+                ProtectSystem = "strict";
+                ProtectHome = true;
+                ProtectKernelTunables = true;
+                ProtectKernelModules = true;
+                ProtectControlGroups = true;
+                DynamicUser = true;
+                PrivateTmp = true;
+                StateDirectory = baseNameOf dataDir;
+                UMask = 0077;
+              };
+            };
+          };
+        };
+    } //
+
     flake-utils.lib.eachDefaultSystem (system:
       let pkgs = nixpkgs.legacyPackages.${system}; in
       {
