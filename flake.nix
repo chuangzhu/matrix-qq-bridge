@@ -73,6 +73,7 @@
                 DynamicUser = true;
                 PrivateTmp = true;
                 StateDirectory = baseNameOf dataDir;
+                WorkingDirectory = dataDir;
                 UMask = 0077;
               };
             };
@@ -89,7 +90,7 @@
           gradleFlags = [ "installDist" ];
           installPhase = ''
             mkdir -p $out
-            cp -r app/build/install/app $out
+            cp -r app/build/install/app/. $out
           '';
         };
 
@@ -108,6 +109,7 @@
         devShells.default = pkgs.mkShell {
           shellHook = ''
             PS1="\n\[\033[1;33m\][matrix-qq-bridge:\w]\$\[\033[0m\] "
+            alias grep='grep --exclude-dir=.git --exclude-dir=dendrite --exclude-dir=tar --exclude-dir=build'
           '';
           nativeBuildInputs = with pkgs; [
             gradle_6

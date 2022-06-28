@@ -76,7 +76,7 @@ suspend fun MessageContent.toMessageEventContent(
                 if (ghost == null) RMEC.TextMessageEventContent(this.content)
                 else {
                     val link = Element("a")
-                    link.attr("href", "https://matrix.to/#/${ghost.userId}")
+                    link.attr("href", MatrixToURL(ghost.userId).toString())
                     link.appendText(ghost.nick)
                     RMEC.TextMessageEventContent(
                             body = ghost.nick,
@@ -173,10 +173,10 @@ fun RMEC.TextMessageEventContent.addReplyTo(
     val blockquote = Element("blockquote")
     val eventLink = Element("a")
     val senderLink = Element("a")
-    eventLink.attr("href", "https://matrix.to/#/${originalEvent.roomId}/${originalEvent.id.full}")
+    eventLink.attr("href", MatrixToURL(originalEvent.roomId, originalEvent.id).toString())
     eventLink.appendText("In reply to")
     blockquote.appendChild(eventLink)
-    senderLink.attr("href", "https://matrix.to/#/${originalEvent.sender}")
+    senderLink.attr("href", MatrixToURL(originalEvent.sender).toString())
     senderLink.appendText(originalEvent.sender.toString())
     blockquote.appendChild(eventLink)
     blockquote.appendChild(senderLink)
