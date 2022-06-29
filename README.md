@@ -85,6 +85,7 @@ This repository is a flake, and it includes a NixOS module.
     * [ ] Nudge
     * [ ] Withdraw message
     * [ ] Miniapp message
+    * [ ] Forwarded message
     * [ ] Audio
     * Location (not yet supported by Mirai)
     * Video (not yet supported by Mirai)

@@ -52,7 +52,56 @@ import org.jsoup.nodes.TextNode
 import org.jsoup.safety.Cleaner
 import org.jsoup.safety.Safelist
 
+/** A wrapper for TextMessageEventContent, can also hold a plain text message */
+data class HtmlMessageEventContent(
+        val body: String,
+        val formattedBody: Element? = null,
+        val relatesTo: RelatesTo? = null
+) {
+    fun toTextMessageEventContent() =
+            RMEC.TextMessageEventContent(
+                    body = body,
+                    format = if (formattedBody == null) null else "org.matrix.custom.html",
+                    formattedBody = formattedBody?.toString(),
+                    relatesTo = relatesTo
+            )
+}
+
 /** QQ -> Matrix */
+suspend fun MessageContent.toHtmlMessageEventContent(
+        matrixApiClient: MatrixApiClient,
+        config: Config
+): HtmlMessageEventContent =
+        when (this) {
+            is At -> {
+                val ghost = Ghost.get(this.target, matrixApiClient, config)
+                if (ghost == null) HtmlMessageEventContent(this.content)
+                else {
+                    val link = Element("a")
+                    link.attr("href", MatrixToURL(ghost.userId).toString())
+                    link.appendText(ghost.nick)
+                    HtmlMessageEventContent(body = ghost.nick, formattedBody = link)
+                }
+            }
+            is Face -> {
+                val shortcode = ":${FaceInfos.shortcodes.getOrElse(id) { "qq_emoji_$id" }}:"
+                val url = FaceInfos.urls.getOrElse(id) { null }
+                if (url != null) {
+                    val img = Element("img")
+                    img.attr("data-mx-emoticon", "")
+                    img.attr("src", url)
+                    img.attr("alt", shortcode)
+                    img.attr("title", shortcode)
+                    img.attr("height", "32")
+                    HtmlMessageEventContent(shortcode, formattedBody = img)
+                } else HtmlMessageEventContent(shortcode)
+            }
+            // is ForwardMessage -> {
+            //     this.nodeList
+            // }
+            else -> HtmlMessageEventContent(this.content)
+        }
+
 suspend fun MessageContent.toMessageEventContent(
         matrixApiClient: MatrixApiClient,
         config: Config
@@ -71,33 +120,9 @@ suspend fun MessageContent.toMessageEventContent(
                 if (this.isEmoji) StickerMessageEventContent(this.content, url = url)
                 else RMEC.ImageMessageEventContent(this.content, url = url)
             }
-            is At -> {
-                val ghost = Ghost.get(this.target, matrixApiClient, config)
-                if (ghost == null) RMEC.TextMessageEventContent(this.content)
-                else {
-                    val link = Element("a")
-                    link.attr("href", MatrixToURL(ghost.userId).toString())
-                    link.appendText(ghost.nick)
-                    RMEC.TextMessageEventContent(
-                            body = ghost.nick,
-                            format = "org.matrix.custom.html",
-                            formattedBody = link.toString()
-                    )
-                }
-            }
-            is Face -> {
-                val shortcode = ":${FaceInfos.shortcodes.getOrElse(id) { "qq_emoji_$id" }}:"
-                val url = FaceInfos.urls.getOrElse(id) { null }
-                if (url != null)
-                        RMEC.TextMessageEventContent(
-                                shortcode,
-                                format = "org.matrix.custom.html",
-                                formattedBody =
-                                        """<img data-mx-emoticon src="$url" alt="$shortcode" title="$shortcode" height="32" />"""
-                        )
-                else RMEC.TextMessageEventContent(shortcode)
-            }
-            else -> RMEC.TextMessageEventContent(this.content)
+            else ->
+                    this.toHtmlMessageEventContent(matrixApiClient, config)
+                            .toTextMessageEventContent()
         }
 
 /**
