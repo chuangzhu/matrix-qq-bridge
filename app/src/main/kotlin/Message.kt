@@ -30,6 +30,7 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.message.data.At
 import net.mamoe.mirai.message.data.Face
+import net.mamoe.mirai.message.data.ForwardMessage
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import net.mamoe.mirai.message.data.ImageType
@@ -42,6 +43,7 @@ import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.QuoteReply
 import net.mamoe.mirai.message.data.buildMessageSource
 import net.mamoe.mirai.message.data.content
+import net.mamoe.mirai.message.data.contentsList
 import net.mamoe.mirai.message.data.messageChainOf
 import net.mamoe.mirai.message.data.toMessageChain
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
@@ -52,18 +54,33 @@ import org.jsoup.nodes.TextNode
 import org.jsoup.safety.Cleaner
 import org.jsoup.safety.Safelist
 
-/** A wrapper for TextMessageEventContent, can also hold a plain text message */
+/**
+ * A wrapper for TextMessageEventContent, can also hold a plain text message
+ *
+ * TODO: eventually replace all direct calls of TMEC to HMEC, and add it in (de)serializer
+ */
 data class HtmlMessageEventContent(
         val body: String,
-        val formattedBody: Element? = null,
+        val formattedBody: List<Node>? = null,
         val relatesTo: RelatesTo? = null
 ) {
     fun toTextMessageEventContent() =
             RMEC.TextMessageEventContent(
                     body = body,
                     format = if (formattedBody == null) null else "org.matrix.custom.html",
-                    formattedBody = formattedBody?.toString(),
+                    formattedBody = formattedBody?.map { it.toString() }?.joinToString("\n"),
                     relatesTo = relatesTo
+            )
+    operator fun plus(another: HtmlMessageEventContent) =
+            HtmlMessageEventContent(
+                    this.body + another.body,
+                    // Null if both are plain text, concat if either has formatted_body
+                    if (this.formattedBody == null && another.formattedBody == null) null
+                    else
+                            (this.formattedBody
+                                    ?: listOf(TextNode(this.body))) +
+                                    (another.formattedBody ?: listOf(TextNode(another.body))),
+                    this.relatesTo ?: another.relatesTo
             )
 }
 
@@ -80,7 +97,7 @@ suspend fun MessageContent.toHtmlMessageEventContent(
                     val link = Element("a")
                     link.attr("href", MatrixToURL(ghost.userId).toString())
                     link.appendText(ghost.nick)
-                    HtmlMessageEventContent(body = ghost.nick, formattedBody = link)
+                    HtmlMessageEventContent(ghost.nick, listOf(link))
                 }
             }
             is Face -> {
@@ -93,12 +110,30 @@ suspend fun MessageContent.toHtmlMessageEventContent(
                     img.attr("alt", shortcode)
                     img.attr("title", shortcode)
                     img.attr("height", "32")
-                    HtmlMessageEventContent(shortcode, formattedBody = img)
+                    HtmlMessageEventContent(shortcode, listOf(img))
                 } else HtmlMessageEventContent(shortcode)
             }
-            // is ForwardMessage -> {
-            //     this.nodeList
-            // }
+            is ForwardMessage -> {
+                val ul = Element("ul")
+                val source = "Forwarded from ${this.source}"
+                var fallback = source
+                this.nodeList.forEach { node ->
+                    val url = MatrixToURL(config.getGhostId(node.senderId)).toString()
+                    val li = Element("li")
+                    val mentionLink = Element("a")
+                    mentionLink.attr("href", url)
+                    mentionLink.appendText(node.senderName)
+                    li.appendChild(mentionLink)
+                    li.appendText(": ")
+                    node.messageChain.contentsList().forEach { msg ->
+                        val hmec = msg.toHtmlMessageEventContent(matrixApiClient, config)
+                        li.appendChildren(hmec.formattedBody ?: listOf(TextNode(hmec.body)))
+                        hmec.body.split("\n").forEach { fallback += "\n> <${url}> ${it}" }
+                    }
+                    ul.appendChild(li)
+                }
+                HtmlMessageEventContent(fallback, listOf(TextNode(source), ul))
+            }
             else -> HtmlMessageEventContent(this.content)
         }
 
@@ -145,6 +180,7 @@ suspend fun MessageChain.toMessageEventContents(
         // Concat previous and current if both m.text
         else if (previous is RMEC.TextMessageEventContent && current is RMEC.TextMessageEventContent
         ) {
+            // TODO: replace this with HtmlMessageEventContent
             // Null if both are plain text, concat if either has formatted_body
             val formattedBody =
                     if (previous.formattedBody == null && current.formattedBody == null) null
