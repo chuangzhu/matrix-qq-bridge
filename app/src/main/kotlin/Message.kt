@@ -62,8 +62,8 @@ import org.jsoup.safety.Safelist
 data class HtmlMessageEventContent(
         val body: String,
         val formattedBody: List<Node>? = null,
-        val relatesTo: RelatesTo? = null
-) {
+        override val relatesTo: RelatesTo? = null
+) : MessageEventContent {
     fun toTextMessageEventContent() =
             RMEC.TextMessageEventContent(
                     body = body,
@@ -155,9 +155,7 @@ suspend fun MessageContent.toMessageEventContent(
                 if (this.isEmoji) StickerMessageEventContent(this.content, url = url)
                 else RMEC.ImageMessageEventContent(this.content, url = url)
             }
-            else ->
-                    this.toHtmlMessageEventContent(matrixApiClient, config)
-                            .toTextMessageEventContent()
+            else -> this.toHtmlMessageEventContent(matrixApiClient, config)
         }
 
 /**
@@ -178,49 +176,34 @@ suspend fun MessageChain.toMessageEventContents(
         val current = content.toMessageEventContent(matrixApiClient, config)
         if (result.size == 0) result.add(current)
         // Concat previous and current if both m.text
-        else if (previous is RMEC.TextMessageEventContent && current is RMEC.TextMessageEventContent
-        ) {
-            // TODO: replace this with HtmlMessageEventContent
-            // Null if both are plain text, concat if either has formatted_body
-            val formattedBody =
-                    if (previous.formattedBody == null && current.formattedBody == null) null
-                    else
-                            (previous.formattedBody
-                                    ?: TextNode(previous.body).toString()) +
-                                    (current.formattedBody ?: TextNode(current.body).toString())
-            result[result.size - 1] =
-                    RMEC.TextMessageEventContent(
-                            body = previous.body + current.body,
-                            format = previous.format ?: current.format,
-                            formattedBody = formattedBody,
-                            relatesTo = previous.relatesTo
-                    )
-        } else result.add(current)
+        else if (previous is HtmlMessageEventContent && current is HtmlMessageEventContent)
+                result[result.size - 1] = previous + current
+        else result.add(current)
     }
     // Add rich reply
     val quoteReply = this.filterIsInstance<QuoteReply>().firstOrNull()
     if (quoteReply != null) {
         val eventId = Messages.getEventId(quoteReply.source, messageSourceKind)
         if (eventId != null) {
-            // Should be safe to cast because eventIds in db are from messages
-            @Suppress("UNCHECKED_CAST")
             @OptIn(ExperimentalSerializationApi::class)
-            val originalEvent =
-                    matrixApiClient.rooms.getEvent(roomId, eventId).getOrThrow() as
-                            Event.MessageEvent<MessageEventContent>
-            for ((i, mec) in result.withIndex()) {
-                if (mec is RMEC.TextMessageEventContent) result[i] = mec.addReplyTo(originalEvent)
-            }
+            val event = matrixApiClient.rooms.getEvent(roomId, eventId).getOrThrow()
+            if (event is Event.MessageEvent && event.content is MessageEventContent)
+                    result.map {
+                        @Suppress("UNCHECKED_CAST")
+                        if (it is HtmlMessageEventContent)
+                                it.addReplyTo(event as Event.MessageEvent<MessageEventContent>)
+                        else it
+                    }
         }
     }
-    return result
+    return result.map { if (it is HtmlMessageEventContent) it.toTextMessageEventContent() else it }
 }
 
 /** @see https://spec.matrix.org/v1.2/client-server-api/#rich-replies */
-fun RMEC.TextMessageEventContent.addReplyTo(
-        originalEvent: Event.MessageEvent<MessageEventContent>
-): RMEC.TextMessageEventContent {
-    val content = originalEvent.content
+fun HtmlMessageEventContent.addReplyTo(
+        event: Event.MessageEvent<MessageEventContent>
+): HtmlMessageEventContent {
+    val content = event.content
     val fallback: String =
             when (content) {
                 is RMEC.TextMessageEventContent ->
@@ -234,11 +217,11 @@ fun RMEC.TextMessageEventContent.addReplyTo(
     val blockquote = Element("blockquote")
     val eventLink = Element("a")
     val senderLink = Element("a")
-    eventLink.attr("href", MatrixToURL(originalEvent.roomId, originalEvent.id).toString())
+    eventLink.attr("href", MatrixToURL(event.roomId, event.id).toString())
     eventLink.appendText("In reply to")
     blockquote.appendChild(eventLink)
-    senderLink.attr("href", MatrixToURL(originalEvent.sender).toString())
-    senderLink.appendText(originalEvent.sender.toString())
+    senderLink.attr("href", MatrixToURL(event.sender).toString())
+    senderLink.appendText(event.sender.toString())
     blockquote.appendChild(eventLink)
     blockquote.appendChild(senderLink)
     blockquote.appendChild(Element("br"))
@@ -253,32 +236,24 @@ fun RMEC.TextMessageEventContent.addReplyTo(
         else -> return this
     }
     mxReply.appendChild(blockquote)
-    return RMEC.TextMessageEventContent(
-            body = "> <${originalEvent.sender}> ${fallback}\n\n" + this.body,
-            format = "org.matrix.custom.html",
-            formattedBody =
-                    mxReply.toString() + (this.formattedBody ?: TextNode(this.body).toString()),
+    return HtmlMessageEventContent(
+            "> <${event.sender}> ${fallback}\n\n",
+            listOf(mxReply),
             // https://gitlab.com/trixnity/trixnity/-/blob/v1.1.9/trixnity-core/src/commonTest/kotlin/net/folivo/trixnity/core/serialization/events/EventSerializerTest.kt#L619-631
-            relatesTo =
-                    RelatesTo.Unknown(
-                            raw =
-                                    JsonObject(
-                                            mapOf(
-                                                    "m.in_reply_to" to
-                                                            JsonObject(
-                                                                    mapOf(
-                                                                            "event_id" to
-                                                                                    JsonPrimitive(
-                                                                                            originalEvent
-                                                                                                    .id
-                                                                                                    .full
-                                                                                    )
-                                                                    )
-                                                            )
+            RelatesTo.Unknown(
+                    JsonObject(
+                            mapOf(
+                                    "m.in_reply_to" to
+                                            JsonObject(
+                                                    mapOf(
+                                                            "event_id" to
+                                                                    JsonPrimitive(event.id.full)
+                                                    )
                                             )
-                                    )
+                            )
                     )
-    )
+            )
+    ) + this
 }
 
 /**
