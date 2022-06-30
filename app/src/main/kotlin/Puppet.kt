@@ -7,13 +7,20 @@ import java.sql.Connection
 import kotlinx.serialization.json.Json
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent
 import net.mamoe.mirai.BotFactory
+import net.mamoe.mirai.contact.Group
+import net.mamoe.mirai.contact.User
 import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.event.events.MessageRecallEvent
+import net.mamoe.mirai.event.events.NudgeEvent
 import net.mamoe.mirai.event.events.OtherClientMessageEvent
 import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.MessageSourceKind
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
 import net.mamoe.mirai.utils.DeviceInfo
+import org.jsoup.nodes.Element
+import org.jsoup.nodes.TextNode
 
 // class PuppetLoginSolver(matrixApiClient: MatrixApiClient) : LoginSolver() {
 //     val matrixApiClient = matrixApiClient
@@ -78,6 +85,44 @@ class Puppet(
                         Messages.save(source, eventId, MessageSourceKind.GROUP)
                     }
         }
+        bot.eventChannel.subscribeAlways<NudgeEvent> {
+            val fromId =
+                    if (from is User) Ghost.get(from as User, matrixApiClient, config).userId
+                    else return@subscribeAlways
+            data class Result(val id: UserId, val nick: String)
+            val (targetId, targetNick) =
+                    if (target is User) {
+                        val ghost = Ghost.get(target as User, matrixApiClient, config)
+                        Result(ghost.userId, ghost.nick)
+                    } else {
+                        val puppet = Puppet.getPuppet(target.id)
+                        val nick = matrixApiClient.users.getDisplayName(puppet!!.mxid).getOrNull()
+                        Result(puppet.mxid, nick ?: puppet.mxid.toString())
+                    }
+            val actions =
+                    (if (action == "") "" else " and ${action}") +
+                            (if (suffix == "") "" else ", ${suffix}")
+            val roomId =
+                    if (subject is Group)
+                            Portal.get(subject as Group, matrixApiClient, config).roomId!!
+                    else return@subscribeAlways
+            val link = Element("a")
+            link.attr("href", MatrixToURL(targetId).toString())
+            link.appendText(targetNick)
+            matrixApiClient
+                    .rooms
+                    .sendMessageEvent(
+                            roomId,
+                            RoomMessageEventContent.EmoteMessageEventContent(
+                                    "nudges ${targetNick}${actions}",
+                                    "org.matrix.custom.html",
+                                    "nudges ${link}${TextNode(actions)}"
+                            ),
+                            asUserId = fromId
+                    )
+                    .getOrThrow()
+        }
+        bot.eventChannel.subscribeAlways<MessageRecallEvent.GroupRecall> {}
         bot.eventChannel.subscribeAlways<OtherClientMessageEvent> {}
     }
 
@@ -90,10 +135,13 @@ class Puppet(
         statement.setString(3, password)
         statement.setString(4, deviceJson)
         statement.executeUpdate()
+        Puppet.byMxId[mxid] = this
+        Puppet.byQqId[qqid] = this
     }
 
     companion object {
-        val byMxid = mutableMapOf<UserId, Puppet>()
+        val byMxId = mutableMapOf<UserId, Puppet>()
+        val byQqId = mutableMapOf<Long, Puppet>()
         var connection: Connection? = null
         fun dbInit(connection: Connection) {
             this.connection = connection
@@ -109,8 +157,9 @@ class Puppet(
                     """
             )
         }
-        suspend fun getPuppet(mxid: UserId): Puppet? =
-                if (byMxid.containsKey(mxid)) byMxid[mxid]!! else null
+        fun getPuppet(mxid: UserId): Puppet? =
+                if (byMxId.containsKey(mxid)) byMxId[mxid]!! else null
+        fun getPuppet(qqid: Long): Puppet? = if (byQqId.containsKey(qqid)) byQqId[qqid]!! else null
         // Read
         suspend fun loadAll(matrixApiClient: MatrixApiClient, config: Config) {
             val rs =
@@ -119,15 +168,12 @@ class Puppet(
                             .executeQuery("SELECT mxid, qqid, password, device_json FROM puppets")
             while (rs.next()) {
                 val mxid = UserId(rs.getString("mxid"))
+                val qqid = rs.getLong("qqid")
                 val puppet =
-                        Puppet(
-                                mxid,
-                                rs.getLong("qqid"),
-                                rs.getString("password"),
-                                rs.getString("device_json")
-                        )
+                        Puppet(mxid, qqid, rs.getString("password"), rs.getString("device_json"))
                 puppet.connect(matrixApiClient, config)
-                byMxid[mxid] = puppet
+                byMxId[mxid] = puppet
+                byQqId[qqid] = puppet
             }
         }
     }

@@ -82,8 +82,8 @@ This repository is a flake, and it includes a NixOS module.
     * [x] Emoji
     * [x] Message reply
     * [x] Mention
-    * [ ] Nudge
-    * [ ] Withdraw message
+    * [x] Nudge
+    * [ ] Recall message
     * [ ] Miniapp message
     * [x] Forwarded message
     * [ ] Audio
