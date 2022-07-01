@@ -10,7 +10,7 @@ $ gradle installDist
 
 JARs and a wrapper can be found in `app/build/install/app/`.
 
-## Usage
+## Deployment
 
 A example config for the bridge is at [config-example.yaml](./config-example.yaml).
 
@@ -39,7 +39,7 @@ Restart the homeserver, then start the bridge:
 $ ./app/build/install/app/bin/app config.yaml qq-registration.yaml
 ```
 
-## Usage with Nix flakes
+### Using Nix flakes
 
 This repository is a flake, and it includes a NixOS module.
 
@@ -70,6 +70,14 @@ This repository is a flake, and it includes a NixOS module.
   };
 }
 ```
+
+## Usage
+
+Create a direct chat with `@<appservice.bot_username>:<homeserver.domain>`. Available commands:
+
+- `!login` - Get instruction to login to QQ.
+- `!listclient` - List other clients of current QQ account.
+- `!cancel` - Cancel an ongoing action
 
 ## Features and roadmap
 

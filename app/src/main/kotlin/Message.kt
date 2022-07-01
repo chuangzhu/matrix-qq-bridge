@@ -68,7 +68,7 @@ data class HtmlMessageEventContent(
             RMEC.TextMessageEventContent(
                     body = body,
                     format = if (formattedBody == null) null else "org.matrix.custom.html",
-                    formattedBody = formattedBody?.map { it.toString() }?.joinToString("\n"),
+                    formattedBody = formattedBody?.map { it.toString() }?.joinToString(""),
                     relatesTo = relatesTo
             )
     operator fun plus(another: HtmlMessageEventContent) =
