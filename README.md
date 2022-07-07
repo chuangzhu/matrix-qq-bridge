@@ -130,7 +130,6 @@ Create a direct chat with `@<appservice.bot_username>:<homeserver.domain>`. Avai
     * [x] Mention
     * [ ] Redact message (within 2 mins)
     * [ ] Location
-    * [ ] Emote
     * [ ] Audio
     * [ ] Video (to a file)
   * [x] Room message

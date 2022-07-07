@@ -29,6 +29,7 @@ import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent as R
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Contact
 import net.mamoe.mirai.message.data.At
+import net.mamoe.mirai.message.data.AtAll
 import net.mamoe.mirai.message.data.Face
 import net.mamoe.mirai.message.data.ForwardMessage
 import net.mamoe.mirai.message.data.Image
@@ -100,6 +101,7 @@ suspend fun MessageContent.toHtmlMessageEventContent(
                     HtmlMessageEventContent(ghost.nick, listOf(link))
                 }
             }
+            is AtAll -> HtmlMessageEventContent("@room ")
             is Face -> {
                 val shortcode = ":${FaceInfos.shortcodes.getOrElse(id) { "qq_emoji_$id" }}:"
                 val url = FaceInfos.urls.getOrElse(id) { null }
