@@ -8,6 +8,8 @@ app_service_api:
   - ./qq-registration.yaml
   database:
     connection_string: file:dendrite/appserviceapi.db
+client_api:
+  registration_disabled: false
 federation_api:
   database:
     connection_string: file:dendrite/federationapi.db

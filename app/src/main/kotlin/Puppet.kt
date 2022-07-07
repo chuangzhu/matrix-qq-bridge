@@ -57,14 +57,18 @@ class Puppet(
         bot.eventChannel.subscribeAlways<GroupMessageEvent> {
             val ghost = Ghost.get(sender, matrixApiClient, config)
             val portal = Portal.get(subject, matrixApiClient, config)
-            // TODO: store relationships
-            matrixApiClient.rooms.inviteUser(portal.roomId!!, mxid)
-            matrixApiClient.rooms.inviteUser(portal.roomId!!, ghost.userId)
-            matrixApiClient.rooms.joinRoom(portal.roomId!!, asUserId = ghost.userId)
+            // Invite and set permission for the puppet,
+            // before the duplicated message check to make sure all puppets in the group are invited
+            portal.addMember(subject.botAsMember, matrixApiClient, config, mxid = mxid)
+
             // Prevent message being sent multiple times with multiple puppets logged in
             val source = message.get(MessageSource.Key)
             if (Messages.getEventId(source!!, MessageSourceKind.GROUP) != null)
                     return@subscribeAlways
+
+            // Invite and set permission for the sender, after the duplicated message check to
+            // prevent the ghost of another puppet from getting invited
+            portal.addMember(sender, matrixApiClient, config)
             // QQ message -> Matrix messages
             message.toMessageEventContents(
                             matrixApiClient,

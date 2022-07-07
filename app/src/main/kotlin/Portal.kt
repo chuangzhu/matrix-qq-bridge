@@ -15,12 +15,15 @@ import net.folivo.trixnity.appservice.rest.room.CreateRoomParameter
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.RoomAliasId
 import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.Event.MessageEvent
-import net.folivo.trixnity.core.model.events.m.room.AvatarEventContent
-import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
 import net.folivo.trixnity.core.model.events.MessageEventContent
+import net.folivo.trixnity.core.model.events.m.room.AvatarEventContent
+import net.folivo.trixnity.core.model.events.m.room.PowerLevelsEventContent
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Group
+import net.mamoe.mirai.contact.Member
+import net.mamoe.mirai.contact.MemberPermission
 import net.mamoe.mirai.message.data.MessageSourceKind
 
 class Portal(
@@ -79,22 +82,101 @@ class Portal(
         statement.executeUpdate()
     }
 
+    // Member relationships
+    fun insertMember(member: Member) {
+        val statement =
+                connection!!.prepareStatement("INSERT INTO portals_members VALUES (?, ?, ?)")
+        statement.setLong(1, this.qqid)
+        statement.setLong(2, member.id)
+        statement.setString(3, member.permission.toString())
+        statement.executeUpdate()
+    }
+    fun updateMember(member: Member) {
+        val statement =
+                connection!!.prepareStatement(
+                        "UPDATE portals_members SET permission = ? WHERE portal_qqid = ? AND member_qqid = ?"
+                )
+        statement.setString(1, member.permission.toString())
+        statement.setLong(2, this.qqid)
+        statement.setLong(3, member.id)
+        statement.executeUpdate()
+    }
+    fun getMemberPermission(qqid: Long): MemberPermission? {
+        val statement =
+                connection!!.prepareStatement(
+                        "SELECT permission FROM portals_members WHERE portal_qqid = ? AND member_qqid = ?"
+                )
+        statement.setLong(1, this.qqid)
+        statement.setLong(2, qqid)
+        val rs = statement.executeQuery()
+        if (rs.next()) return MemberPermission.valueOf(rs.getString("permission"))
+        return null
+    }
+
+    /**
+     * Invite and set permission for a QQ group member.
+     *
+     * Can be used on both ghost and puppet.
+     */
+    suspend fun addMember(
+            member: Member,
+            matrixApiClient: MatrixApiClient,
+            config: Config,
+            // Specify this if the target is a puppet
+            mxid: UserId = config.getGhostId(member.id),
+    ) {
+        val permission = getMemberPermission(member.id)
+        if (permission == null) {
+            // Not in the Matrix room
+            insertMember(member)
+            matrixApiClient.rooms.inviteUser(this.roomId!!, mxid)
+            matrixApiClient.rooms.joinRoom(this.roomId!!, asUserId = mxid)
+        } else if (permission != member.permission) /* In the Matrix room */ updateMember(member)
+        // In both cases, update power levels at Matrix side
+        if (permission != member.permission) {
+            val powerLevels =
+                    matrixApiClient
+                            .rooms
+                            .getStateEvent<PowerLevelsEventContent>(
+                                    this.roomId!!,
+                                    asUserId = config.botUserId
+                            )
+                            .getOrThrow()
+            val users = powerLevels.users.toMutableMap()
+            // MEMBER -> default, ADMIN -> moderator, OWNER -> admin
+            users[mxid] = member.permission.level * 50
+            matrixApiClient.rooms.sendStateEvent(
+                    this.roomId!!,
+                    powerLevels.copy(users = users),
+                    asUserId = config.botUserId
+            )
+        }
+    }
+
     companion object {
         var connection: Connection? = null
         fun dbInit(connection: Connection) {
             this.connection = connection
-            connection
-                    .createStatement()
-                    .executeUpdate(
-                            """
-                                CREATE TABLE IF NOT EXISTS portal (
-                                    qqid INTEGER PRIMARY KEY NOT NULL,
-                                    room_id TEXT NOT NULL,
-                                    name TEXT NOT NULL,
-                                    avatar_url TEXT
-                                )
-                            """
-                    )
+            val statement = connection.createStatement()
+            statement.executeUpdate(
+                    """
+                        CREATE TABLE IF NOT EXISTS portal (
+                            qqid INTEGER PRIMARY KEY NOT NULL,
+                            room_id TEXT NOT NULL,
+                            name TEXT NOT NULL,
+                            avatar_url TEXT
+                        )
+                    """
+            )
+            statement.executeUpdate(
+                    """
+                        CREATE TABLE IF NOT EXISTS portals_members (
+                            portal_qqid INTEGER NOT NULL,
+                            member_qqid INTEGER NOT NULL,
+                            permission TEXT NOT NULL
+                        )
+                    """
+            )
         }
         suspend fun get(group: Group, matrixApiClient: MatrixApiClient, config: Config): Portal {
             // Read
@@ -177,7 +259,10 @@ class Portal(
             if (Messages.getMessageSource(event.id, puppet.bot) != null) return
             // A user in the room with puppet may not be in the QQ group, ignore
             val group = puppet.bot.getGroup(portal.qqid) ?: return
-            val receipt = group.sendMessage(event.content.toMessage(matrixApiClient, group, config) ?: return)
+            val receipt =
+                    group.sendMessage(
+                            event.content.toMessage(matrixApiClient, group, config) ?: return
+                    )
             Messages.save(receipt.source, event.id, MessageSourceKind.GROUP)
         }
     }

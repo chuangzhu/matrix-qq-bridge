@@ -82,8 +82,7 @@ class ManagementRoom(val roomId: RoomId, var userId: UserId, var state: Command 
                 config: Config
         ) {
             val room = getManagementRoom(event.roomId)
-            val botUserId = UserId(config.appservice.botUsername, config.homeserver.domain)
-            if (room != null && event.sender != botUserId) {
+            if (room != null && event.sender != config.botUserId) {
                 if (config.bridge.getPermission(room.userId) < Config.Bridge.Permission.USER) {
                     matrixApiClient.rooms.sendMessageEvent(
                             event.roomId,

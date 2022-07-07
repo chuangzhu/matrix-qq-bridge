@@ -36,6 +36,7 @@ data class Config(val homeserver: Homeserver, val appservice: Appservice, val br
             return Permission.NONE
         }
     }
+    val botUserId = UserId(appservice.botUsername, homeserver.domain)
     fun getGhostId(qqid: Long): UserId {
         val username = "${appservice.usernamePrefix}${qqid}"
         return UserId(username, homeserver.domain)

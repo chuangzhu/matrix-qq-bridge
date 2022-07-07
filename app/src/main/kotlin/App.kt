@@ -73,13 +73,12 @@ fun main(args: Array<String>) {
                                     ),
                     )
                     .apply { accessToken.value = registrationConfig.asToken }
-    val botUserId = UserId(config.appservice.botUsername, config.homeserver.domain)
     runBlocking {
         matrixApiClient.authentication.register(
                 isAppservice = true,
                 username = config.appservice.botUsername
         )
-        matrixApiClient.users.setDisplayName(userId = botUserId, displayName = "QQ Bridge")
+        matrixApiClient.users.setDisplayName(userId = config.botUserId, displayName = "QQ Bridge")
         Puppet.loadAll(matrixApiClient, config)
     }
     val eventTnxService = EventTnxService()
@@ -98,7 +97,7 @@ fun main(args: Array<String>) {
         it as StateEvent<MemberEventContent>
         if (it.content.membership == MemberEventContent.Membership.INVITE &&
                         it.content.isDirect == true &&
-                        it.sender != botUserId
+                        it.sender != config.botUserId
         ) {
             val room = ManagementRoom(it.roomId, it.sender)
             room.insert()

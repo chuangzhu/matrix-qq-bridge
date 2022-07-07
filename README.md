@@ -102,7 +102,8 @@ Create a direct chat with `@<appservice.bot_username>:<homeserver.domain>`. Avai
   * [ ] Stranger message
   * [ ] OtherClient message
   * [ ] Presence
-  * [ ] Group permissions
+  * [x] Group permissions
+  * [ ] Muted group members
   * [ ] Membership actions (invite/kick/join/leave)
   * [x] Initial chat metadata
     * [x] Group name

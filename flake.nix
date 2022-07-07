@@ -116,7 +116,7 @@
             (pkgs.writeScriptBin "dendrite" ''
               mkdir -p dendrite
               [[ -f dendrite/matrix_key.pem ]] || ${pkgs.dendrite}/bin/generate-keys -private-key dendrite/matrix_key.pem
-              ${pkgs.dendrite}/bin/dendrite-monolith-server -config dendrite.yaml
+              ${pkgs.dendrite}/bin/dendrite-monolith-server -config dendrite.yaml -really-enable-open-registration
             '')
             sqlite
           ];
