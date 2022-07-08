@@ -129,7 +129,7 @@ class Portal(
         if (permission == null) {
             // Not in the Matrix room
             insertMember(member)
-            matrixApiClient.rooms.inviteUser(this.roomId!!, mxid)
+            matrixApiClient.rooms.inviteUser(this.roomId!!, mxid, asUserId = config.botUserId)
             matrixApiClient.rooms.joinRoom(this.roomId!!, asUserId = mxid)
         } else if (permission != member.permission) /* In the Matrix room */ updateMember(member)
         // In both cases, update power levels at Matrix side
@@ -143,8 +143,13 @@ class Portal(
                             )
                             .getOrThrow()
             val users = powerLevels.users.toMutableMap()
-            // MEMBER -> default, ADMIN -> moderator, OWNER -> admin
-            users[mxid] = member.permission.level * 50
+            users[mxid] = when (member.permission) {
+                MemberPermission.MEMBER -> 0
+                // Slightly lower than the bot so it can handle ownership transfer
+                MemberPermission.OWNER -> users[config.botUserId]!! - 1
+                // Use 50 if possible
+                MemberPermission.ADMINISTRATOR -> minOf(users[config.botUserId]!! - 2, 50)
+            }
             matrixApiClient.rooms.sendStateEvent(
                     this.roomId!!,
                     powerLevels.copy(users = users),
