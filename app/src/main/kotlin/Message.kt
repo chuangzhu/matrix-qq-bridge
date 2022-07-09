@@ -120,7 +120,8 @@ suspend fun MessageContent.toHtmlMessageEventContent(
                 val source = "Forwarded from ${this.source}"
                 var fallback = source
                 this.nodeList.forEach { node ->
-                    val url = MatrixToURL(config.getGhostId(node.senderId)).toString()
+                    val senderId = config.getGhostId(node.senderId)
+                    val url = MatrixToURL(senderId).toString()
                     val li = Element("li")
                     val mentionLink = Element("a")
                     mentionLink.attr("href", url)
@@ -130,7 +131,7 @@ suspend fun MessageContent.toHtmlMessageEventContent(
                     node.messageChain.contentsList().forEach { msg ->
                         val hmec = msg.toHtmlMessageEventContent(matrixApiClient, config)
                         li.appendChildren(hmec.formattedBody ?: listOf(TextNode(hmec.body)))
-                        hmec.body.split("\n").forEach { fallback += "\n> <${url}> ${it}" }
+                        hmec.body.split("\n").forEach { fallback += "\n> <${senderId}> ${it}" }
                     }
                     ul.appendChild(li)
                 }
