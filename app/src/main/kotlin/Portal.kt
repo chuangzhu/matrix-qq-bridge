@@ -143,13 +143,14 @@ class Portal(
                             )
                             .getOrThrow()
             val users = powerLevels.users.toMutableMap()
-            users[mxid] = when (member.permission) {
-                MemberPermission.MEMBER -> 0
-                // Slightly lower than the bot so it can handle ownership transfer
-                MemberPermission.OWNER -> users[config.botUserId]!! - 1
-                // Use 50 if possible
-                MemberPermission.ADMINISTRATOR -> minOf(users[config.botUserId]!! - 2, 50)
-            }
+            users[mxid] =
+                    when (member.permission) {
+                        MemberPermission.MEMBER -> 0
+                        // Slightly lower than the bot so it can handle ownership transfer
+                        MemberPermission.OWNER -> users[config.botUserId]!! - 1
+                        // Use 50 if possible
+                        MemberPermission.ADMINISTRATOR -> minOf(users[config.botUserId]!! - 2, 50)
+                    }
             matrixApiClient.rooms.sendStateEvent(
                     this.roomId!!,
                     powerLevels.copy(users = users),
@@ -266,7 +267,8 @@ class Portal(
             val group = puppet.bot.getGroup(portal.qqid) ?: return
             val receipt =
                     group.sendMessage(
-                            event.content.toMessage(matrixApiClient, group, config) ?: return
+                            event.content.toMessage(matrixApiClient, group, config, puppet.bot)
+                                    ?: return
                     )
             Messages.save(receipt.source, event.id, MessageSourceKind.GROUP)
         }

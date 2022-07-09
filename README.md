@@ -126,7 +126,7 @@ Create a direct chat with `@<appservice.bot_username>:<homeserver.domain>`. Avai
     * [x] Picture
     * [x] Sticker
     * [x] Emoji
-    * [ ] Message reply
+    * [x] Message reply
     * [x] Mention
     * [ ] Redact message (within 2 mins)
     * [ ] Location

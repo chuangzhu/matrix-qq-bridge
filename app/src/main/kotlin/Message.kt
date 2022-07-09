@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.client.api.MediaApiClient
 import net.folivo.trixnity.core.model.EventId
@@ -356,7 +357,7 @@ suspend fun List<Node>.toMessageList(
                         "a" -> {
                             val url = MatrixToURL.fromStringOrNull(node.attr("href"))
                             // Mention
-                            if (url != null && url.id is UserId && url.id.isGhost(config)) {
+                            if (url != null && url.id is UserId && config.isGhost(url.id)) {
                                 config.getGhostQqIdOrNull(url.id)?.also { result.add(At(it)) }
                             } else {
                                 addChildNodes()
@@ -389,7 +390,8 @@ suspend fun MediaApiClient.uploadMxcAsImage(contact: Contact, mxc: String?): Ima
 suspend fun MessageEventContent.toMessage(
         matrixApiClient: MatrixApiClient,
         contact: Contact,
-        config: Config
+        config: Config,
+        bot: Bot
 ): Message? =
         when (this) {
             is RMEC.ImageMessageEventContent ->
@@ -406,6 +408,23 @@ suspend fun MessageEventContent.toMessage(
             }
             is RMEC -> PlainText(this.body)
             else -> null
+        }?.let { message ->
+            // Get replied EventId if exists, and convert it to MessageSource
+            // The reverse of HtmlMessageEventContent.addReplyTo
+            (if (this.relatesTo is RelatesTo.Unknown)
+                            (this.relatesTo as RelatesTo.Unknown).raw["m.in_reply_to"]
+                                    ?.let { if (it is JsonObject) it["event_id"] else null }
+                                    ?.let {
+                                        if (it is JsonPrimitive)
+                                                Messages.getMessageSource(
+                                                        EventId(it.jsonPrimitive.content),
+                                                        bot
+                                                )
+                                        else null
+                                    }
+                    else null)
+                    // Create QQ reply
+                    .let { if (it == null) message else QuoteReply(it) + message }
         }
 
 object Messages {
