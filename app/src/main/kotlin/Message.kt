@@ -26,12 +26,16 @@ import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.Event
 import net.folivo.trixnity.core.model.events.MessageEventContent
 import net.folivo.trixnity.core.model.events.RelatesTo
+import net.folivo.trixnity.core.model.events.m.room.FileInfo
+import net.folivo.trixnity.core.model.events.m.room.ImageInfo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent as RMEC
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Contact
+import net.mamoe.mirai.contact.FileSupported
 import net.mamoe.mirai.message.data.At
 import net.mamoe.mirai.message.data.AtAll
 import net.mamoe.mirai.message.data.Face
+import net.mamoe.mirai.message.data.FileMessage
 import net.mamoe.mirai.message.data.ForwardMessage
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
@@ -140,10 +144,10 @@ suspend fun MessageContent.toHtmlMessageEventContent(
             }
             // Only used in forwarded messages
             is Image -> {
-                val url = matrixApiClient.media.uploadImageAsMxc(this)
+                val mxc = matrixApiClient.media.uploadUrlAsMxc(this.queryUrl())
                 val img = Element("img")
                 if (this.isEmoji) img.attr("data-mx-emoticon", "")
-                img.attr("src", url)
+                img.attr("src", mxc)
                 img.attr("alt", this.content)
                 HtmlMessageEventContent(this.content, listOf(img))
             }
@@ -153,21 +157,35 @@ suspend fun MessageContent.toHtmlMessageEventContent(
 /** QQ -> Matrix */
 suspend fun MessageContent.toMessageEventContent(
         matrixApiClient: MatrixApiClient,
-        config: Config
-): MessageEventContent =
-        when (this) {
-            is Image -> {
-                val url = matrixApiClient.media.uploadImageAsMxc(this)
-                if (this.isEmoji) StickerMessageEventContent(this.content, url = url)
-                else RMEC.ImageMessageEventContent(this.content, url = url)
-            }
-            else -> this.toHtmlMessageEventContent(matrixApiClient, config)
+        config: Config,
+        subject: FileSupported?
+): MessageEventContent {
+    if (this is Image) {
+        val mxc = matrixApiClient.media.uploadUrlAsMxc(this.queryUrl())
+        val info = ImageInfo(height = this.height, width = this.width, size = this.size.toInt())
+        if (this.isEmoji) return StickerMessageEventContent(this.content, info = info, url = mxc)
+        return RMEC.ImageMessageEventContent(this.content, info = info, url = mxc)
+    }
+    if (this is FileMessage && subject != null) {
+        val absoluteFile = this.toAbsoluteFile(subject)
+        if (absoluteFile != null) {
+            val url = absoluteFile.getUrl()
+            if (url != null)
+                    return RMEC.FileMessageEventContent(
+                            this.name,
+                            fileName = this.name,
+                            info = FileInfo(size = absoluteFile.size.toInt()),
+                            url = matrixApiClient.media.uploadUrlAsMxc(url)
+                    )
         }
+    }
+    return this.toHtmlMessageEventContent(matrixApiClient, config)
+}
 
 /* QQ -> Matrix */
-suspend fun MediaApiClient.uploadImageAsMxc(image: Image): String {
+suspend fun MediaApiClient.uploadUrlAsMxc(url: String): String {
     val client = HttpClient(CIO) { install(UserAgent) { agent = "QQClient" } }
-    val response: HttpResponse = client.get(image.queryUrl())
+    val response: HttpResponse = client.get(url)
     val bytes: ByteReadChannel = response.receive()
     return this.upload(bytes, response.contentLength()!!, response.contentType()!!)
             .getOrThrow()
@@ -183,13 +201,14 @@ suspend fun MessageChain.toMessageEventContents(
         matrixApiClient: MatrixApiClient,
         messageSourceKind: MessageSourceKind,
         roomId: RoomId,
-        config: Config
+        config: Config,
+        subject: FileSupported?,
 ): List<MessageEventContent> {
     val contents = this.filterIsInstance<MessageContent>()
     val result = mutableListOf<MessageEventContent>()
     for (content in contents) {
         val previous = result.lastOrNull()
-        val current = content.toMessageEventContent(matrixApiClient, config)
+        val current = content.toMessageEventContent(matrixApiClient, config, subject)
         if (result.size == 0) result.add(current)
         // Concat previous and current if both m.text
         else if (previous is HtmlMessageEventContent && current is HtmlMessageEventContent)

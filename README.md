@@ -84,7 +84,7 @@ Create a direct chat with `@<appservice.bot_username>:<homeserver.domain>`. Avai
 * QQ → Matrix
   * [ ] Message content
     * [x] Text
-    * [ ] Files (partial implementation in Mirai, group only)
+    * [x] Files (partial implementation in Mirai, group only)
     * [x] Picture
     * [x] Sticker
     * [x] Emoji

@@ -74,7 +74,8 @@ class Puppet(
                             matrixApiClient,
                             MessageSourceKind.GROUP,
                             portal.roomId!!,
-                            config
+                            config,
+                            subject
                     )
                     .forEach { mec ->
                         val eventId =
