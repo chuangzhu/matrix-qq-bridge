@@ -138,29 +138,41 @@ suspend fun MessageContent.toHtmlMessageEventContent(
                 }
                 HtmlMessageEventContent(fallback, listOf(TextNode(source), ul))
             }
+            // Only used in forwarded messages
+            is Image -> {
+                val url = matrixApiClient.media.uploadImageAsMxc(this)
+                val img = Element("img")
+                if (this.isEmoji) img.attr("data-mx-emoticon", "")
+                img.attr("src", url)
+                img.attr("alt", this.content)
+                HtmlMessageEventContent(this.content, listOf(img))
+            }
             else -> HtmlMessageEventContent(this.content)
         }
 
+/** QQ -> Matrix */
 suspend fun MessageContent.toMessageEventContent(
         matrixApiClient: MatrixApiClient,
         config: Config
 ): MessageEventContent =
         when (this) {
             is Image -> {
-                val client = HttpClient(CIO) { install(UserAgent) { agent = "QQClient" } }
-                val response: HttpResponse = client.get(this.queryUrl())
-                val bytes: ByteReadChannel = response.receive()
-                val url =
-                        matrixApiClient
-                                .media
-                                .upload(bytes, response.contentLength()!!, response.contentType()!!)
-                                .getOrThrow()
-                                .contentUri
+                val url = matrixApiClient.media.uploadImageAsMxc(this)
                 if (this.isEmoji) StickerMessageEventContent(this.content, url = url)
                 else RMEC.ImageMessageEventContent(this.content, url = url)
             }
             else -> this.toHtmlMessageEventContent(matrixApiClient, config)
         }
+
+/* QQ -> Matrix */
+suspend fun MediaApiClient.uploadImageAsMxc(image: Image): String {
+    val client = HttpClient(CIO) { install(UserAgent) { agent = "QQClient" } }
+    val response: HttpResponse = client.get(image.queryUrl())
+    val bytes: ByteReadChannel = response.receive()
+    return this.upload(bytes, response.contentLength()!!, response.contentType()!!)
+            .getOrThrow()
+            .contentUri
+}
 
 /**
  * QQ -> Matrix
@@ -374,6 +386,7 @@ suspend fun List<Node>.toMessageList(
     return result
 }
 
+/* Matrix -> QQ */
 suspend fun MediaApiClient.uploadMxcAsImage(contact: Contact, mxc: String?): Image? {
     mxc ?: return null
     val response = this.download(mxc).getOrThrow()
