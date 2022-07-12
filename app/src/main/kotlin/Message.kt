@@ -144,10 +144,10 @@ suspend fun MessageContent.toHtmlMessageEventContent(
             }
             // Only used in forwarded messages
             is Image -> {
-                val mxc = matrixApiClient.media.uploadUrlAsMxc(this.queryUrl())
+                val result = matrixApiClient.media.uploadUrlAsMxc(this.queryUrl())
                 val img = Element("img")
                 if (this.isEmoji) img.attr("data-mx-emoticon", "")
-                img.attr("src", mxc)
+                img.attr("src", result.mxc)
                 img.attr("alt", this.content)
                 HtmlMessageEventContent(this.content, listOf(img))
             }
@@ -161,35 +161,48 @@ suspend fun MessageContent.toMessageEventContent(
         subject: FileSupported?
 ): MessageEventContent {
     if (this is Image) {
-        val mxc = matrixApiClient.media.uploadUrlAsMxc(this.queryUrl())
-        val info = ImageInfo(height = this.height, width = this.width, size = this.size.toInt())
-        if (this.isEmoji) return StickerMessageEventContent(this.content, info = info, url = mxc)
-        return RMEC.ImageMessageEventContent(this.content, info = info, url = mxc)
+        val result = matrixApiClient.media.uploadUrlAsMxc(this.queryUrl())
+        val info =
+                ImageInfo(
+                        height = this.height,
+                        width = this.width,
+                        size = this.size.toInt(),
+                        mimeType = result.type
+                )
+        if (this.isEmoji)
+                return StickerMessageEventContent(this.content, info = info, url = result.mxc)
+        return RMEC.ImageMessageEventContent(this.content, info = info, url = result.mxc)
     }
     if (this is FileMessage && subject != null) {
         val absoluteFile = this.toAbsoluteFile(subject)
         if (absoluteFile != null) {
             val url = absoluteFile.getUrl()
-            if (url != null)
-                    return RMEC.FileMessageEventContent(
-                            this.name,
-                            fileName = this.name,
-                            info = FileInfo(size = absoluteFile.size.toInt()),
-                            url = matrixApiClient.media.uploadUrlAsMxc(url)
-                    )
+            if (url != null) {
+                val result = matrixApiClient.media.uploadUrlAsMxc(url)
+                return RMEC.FileMessageEventContent(
+                        this.name,
+                        fileName = this.name,
+                        info = FileInfo(size = absoluteFile.size.toInt(), mimeType = result.type),
+                        url = result.mxc
+                )
+            }
         }
     }
     return this.toHtmlMessageEventContent(matrixApiClient, config)
 }
 
+data class MxcResult(val mxc: String, val type: String)
+
 /* QQ -> Matrix */
-suspend fun MediaApiClient.uploadUrlAsMxc(url: String): String {
+suspend fun MediaApiClient.uploadUrlAsMxc(url: String): MxcResult {
     val client = HttpClient(CIO) { install(UserAgent) { agent = "QQClient" } }
     val response: HttpResponse = client.get(url)
     val bytes: ByteReadChannel = response.receive()
-    return this.upload(bytes, response.contentLength()!!, response.contentType()!!)
-            .getOrThrow()
-            .contentUri
+    val contentType = response.contentType()!!
+    return MxcResult(
+            this.upload(bytes, response.contentLength()!!, contentType).getOrThrow().contentUri,
+            "${contentType.contentType}/${contentType.contentSubtype}"
+    )
 }
 
 /**
