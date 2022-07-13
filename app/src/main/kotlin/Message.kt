@@ -145,11 +145,13 @@ suspend fun MessageContent.toHtmlMessageEventContent(
             // Only used in forwarded messages
             is Image -> {
                 val result = matrixApiClient.media.uploadUrlAsMxc(this.queryUrl())
+                val p = Element("p")
                 val img = Element("img")
                 if (this.isEmoji) img.attr("data-mx-emoticon", "")
                 img.attr("src", result.mxc)
                 img.attr("alt", this.content)
-                HtmlMessageEventContent(this.content, listOf(img))
+                p.appendChild(img)
+                HtmlMessageEventContent(this.content, listOf(p))
             }
             else -> HtmlMessageEventContent(this.content)
         }
@@ -235,13 +237,12 @@ suspend fun MessageChain.toMessageEventContents(
         if (eventId != null) {
             @OptIn(ExperimentalSerializationApi::class)
             val event = matrixApiClient.rooms.getEvent(roomId, eventId).getOrThrow()
-            if (event is Event.MessageEvent && event.content is MessageEventContent)
-                    result.map {
+            if (event is Event.MessageEvent && event.content is MessageEventContent) {
+                for ((i, mec) in result.withIndex()) if (mec is HtmlMessageEventContent)
+                        // Type is erased so this is necessary
                         @Suppress("UNCHECKED_CAST")
-                        if (it is HtmlMessageEventContent)
-                                it.addReplyTo(event as Event.MessageEvent<MessageEventContent>)
-                        else it
-                    }
+                        result[i] = mec.addReplyTo(event as Event.MessageEvent<MessageEventContent>)
+            }
         }
     }
     return result.map { if (it is HtmlMessageEventContent) it.toTextMessageEventContent() else it }

@@ -57,6 +57,7 @@
               wantedBy = [ "multi-user.target" ];
               wants = [ "network-online.target" ] ++ cfg.serviceDependencies;
               after = [ "network-online.target" ] ++ cfg.serviceDependencies;
+              environment.JAVA_HOME = toString pkgs.openjdk11;
               preStart = ''
                 if [ ! -f '${registrationFile}' ]; then
                   ${app} '${settingsFile}' > '${registrationFile}'
