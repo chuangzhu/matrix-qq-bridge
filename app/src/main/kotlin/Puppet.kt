@@ -1,13 +1,16 @@
 package land.melty.matrixqqbridge
 
-// import net.mamoe.mirai.utils.LoginSolver
-
 import io.ktor.client.request.get
+import io.ktor.http.ContentType
+import io.ktor.utils.io.ByteReadChannel
 import java.sql.Connection
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 import kotlinx.serialization.json.Json
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent
+import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.User
@@ -19,20 +22,63 @@ import net.mamoe.mirai.message.data.MessageSource
 import net.mamoe.mirai.message.data.MessageSourceKind
 import net.mamoe.mirai.utils.BotConfiguration.MiraiProtocol.ANDROID_PAD
 import net.mamoe.mirai.utils.DeviceInfo
+import net.mamoe.mirai.utils.LoginSolver
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.TextNode
 
-// class PuppetLoginSolver(matrixApiClient: MatrixApiClient) : LoginSolver() {
-//     val matrixApiClient = matrixApiClient
-//     override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String? {
-//         matrixApiClient.rooms.sendMessageEvent(
-//                 roomId,
-//                 TextMessageEventContent("Captcha required, send the code from the image:")
-//         )
-//         matrixApiClient.media.upload(data, contentLength, contentType)
-//     }
-//     override val isSliderCaptchaSupported = true
-// }
+class PuppetLoginSolver(val matrixApiClient: MatrixApiClient, val mxid: UserId) : LoginSolver() {
+    val room = ManagementRoom.getManagementRoom(mxid)!!
+    override suspend fun onSolvePicCaptcha(bot: Bot, data: ByteArray): String? {
+        matrixApiClient.rooms.sendMessageEvent(
+                room.roomId,
+                RoomMessageEventContent.TextMessageEventContent(
+                        "Captcha required, send the code in the image:"
+                )
+        )
+        val mxc =
+                matrixApiClient
+                        .media
+                        .upload(ByteReadChannel(data), data.size.toLong(), ContentType.Image.PNG)
+                        .getOrThrow()
+                        .contentUri
+        matrixApiClient.rooms.sendMessageEvent(
+                room.roomId,
+                RoomMessageEventContent.ImageMessageEventContent("captcha.png", url = mxc)
+        )
+        room.state = ManagementRoom.Command.CAPTCHA
+        room.update()
+        return suspendCoroutine { coroutine -> room.onCaptcha = { coroutine.resume(it) } }
+    }
+    override val isSliderCaptchaSupported = true
+    override suspend fun onSolveSliderCaptcha(bot: Bot, url: String): String {
+        matrixApiClient.rooms.sendMessageEvent(
+                room.roomId,
+                RoomMessageEventContent.TextMessageEventContent(
+                        "Slider captcha required, please:\n\n" +
+                                "1. Open your browser. Then open DevTools using Ctrl+Shift+I.\n" +
+                                "2. Open this URL ${url} in the tab and solve the captcha.\n" +
+                                "3. Open the Network tab in DevTools. Find the request named `cap_union_new_verify`.\n" +
+                                "4. Send me the value of the `ticket` field (without quotation marks)."
+                )
+        )
+        room.state = ManagementRoom.Command.CAPTCHA
+        room.update()
+        return suspendCoroutine { coroutine -> room.onCaptcha = { coroutine.resume(it) } }
+    }
+    override suspend fun onSolveUnsafeDeviceLoginVerify(bot: Bot, url: String): String {
+        matrixApiClient.rooms.sendMessageEvent(
+                room.roomId,
+                RoomMessageEventContent.TextMessageEventContent(
+                        "Device lock / unauthorized device login detected, " +
+                                "please open ${url} in your browser and complete the challege. " +
+                                "Tell me you've done using the `!done` command."
+                )
+        )
+        room.state = ManagementRoom.Command.CAPTCHA
+        room.update()
+        return suspendCoroutine { coroutine -> room.onCaptcha = { coroutine.resume("") } }
+    }
+}
 
 class Puppet(
         val mxid: UserId,
@@ -50,6 +96,7 @@ class Puppet(
                     }
                 } else loadDeviceInfoJson(deviceJson as String)
                 protocol = ANDROID_PAD
+                loginSolver = PuppetLoginSolver(matrixApiClient!!, mxid)
             }
 
     suspend fun connect(matrixApiClient: MatrixApiClient, config: Config) {
@@ -148,6 +195,7 @@ class Puppet(
         val byMxId = mutableMapOf<UserId, Puppet>()
         val byQqId = mutableMapOf<Long, Puppet>()
         var connection: Connection? = null
+        var matrixApiClient: MatrixApiClient? = null
         fun dbInit(connection: Connection) {
             this.connection = connection
             val statement = connection.createStatement()

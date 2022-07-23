@@ -150,6 +150,7 @@ suspend fun MessageContent.toHtmlMessageEventContent(
                 if (this.isEmoji) img.attr("data-mx-emoticon", "")
                 img.attr("src", result.mxc)
                 img.attr("alt", this.content)
+                img.attr("height", "80")
                 p.appendChild(img)
                 HtmlMessageEventContent(this.content, listOf(p))
             }

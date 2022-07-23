@@ -13,7 +13,8 @@ class ManagementRoom(val roomId: RoomId, var userId: UserId, var state: Command 
 
     enum class Command(val value: Int) {
         DEFAULT(0),
-        LOGIN(1);
+        LOGIN(1),
+        CAPTCHA(2);
         companion object {
             fun fromInt(value: Int) = Command.values().first { it.value == value }
         }
@@ -43,6 +44,8 @@ class ManagementRoom(val roomId: RoomId, var userId: UserId, var state: Command 
         statement.executeUpdate()
     }
 
+    var onCaptcha: (String) -> Unit = {}
+
     companion object {
         var connection: Connection? = null
         fun dbInit(connection: Connection) {
@@ -67,6 +70,20 @@ class ManagementRoom(val roomId: RoomId, var userId: UserId, var state: Command 
                             "SELECT * FROM management_rooms WHERE room_id = ?"
                     )
             statement.setString(1, roomId.toString())
+            val rs = statement.executeQuery()
+            if (rs.next() == false) return null
+            return ManagementRoom(
+                    roomId = RoomId(rs.getString("room_id")),
+                    userId = UserId(rs.getString("user_id")),
+                    state = Command.fromInt(rs.getInt("state")),
+            )
+        }
+        fun getManagementRoom(userId: UserId): ManagementRoom? {
+            val statement =
+                    connection!!.prepareStatement(
+                            "SELECT * FROM management_rooms WHERE user_id = ?"
+                    )
+            statement.setString(1, userId.toString())
             val rs = statement.executeQuery()
             if (rs.next() == false) return null
             return ManagementRoom(
@@ -209,6 +226,10 @@ class ManagementRoom(val roomId: RoomId, var userId: UserId, var state: Command 
                             event.roomId,
                             TextMessageEventContent("Successfully logged in.")
                     )
+                } else if (room.state == Command.CAPTCHA) {
+                    room.onCaptcha(event.content.body.trim())
+                    room.state = Command.DEFAULT
+                    room.update()
                 }
             }
         }

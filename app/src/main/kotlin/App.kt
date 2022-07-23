@@ -1,11 +1,11 @@
 package land.melty.matrixqqbridge
 
 import com.charleskorn.kaml.Yaml
+import io.ktor.application.install
+import io.ktor.features.CallLogging
 import io.ktor.http.Url
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import io.ktor.features.CallLogging
-import io.ktor.application.install
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
@@ -18,12 +18,11 @@ import net.folivo.trixnity.appservice.rest.event.AppserviceEventTnxService
 import net.folivo.trixnity.appservice.rest.matrixAppserviceModule
 import net.folivo.trixnity.client.api.MatrixApiClient
 import net.folivo.trixnity.client.api.createMatrixApiClientEventContentSerializerMappings
-import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.Event.MessageEvent
 import net.folivo.trixnity.core.model.events.Event.StateEvent
+import net.folivo.trixnity.core.model.events.MessageEventContent
 import net.folivo.trixnity.core.model.events.m.room.MemberEventContent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent.TextMessageEventContent
-import net.folivo.trixnity.core.model.events.MessageEventContent
 
 class EventTnxService : AppserviceEventTnxService {
     override suspend fun eventTnxProcessingState(
@@ -73,6 +72,7 @@ fun main(args: Array<String>) {
                                     ),
                     )
                     .apply { accessToken.value = registrationConfig.asToken }
+    Puppet.matrixApiClient = matrixApiClient
     runBlocking {
         matrixApiClient.authentication.register(
                 isAppservice = true,
@@ -120,9 +120,7 @@ fun main(args: Array<String>) {
                     host = config.appservice.hostname,
                     port = config.appservice.port
             ) {
-                install(CallLogging) {
-                    level = org.slf4j.event.Level.WARN
-                }
+                install(CallLogging) { level = org.slf4j.event.Level.WARN }
                 matrixAppserviceModule(
                         MatrixAppserviceProperties(registrationConfig.hsToken),
                         appserviceService,
